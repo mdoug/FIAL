@@ -1,0 +1,43 @@
+{
+    "prefix" : "AST",
+    "stmt"   :
+    [
+	"ASSIGN"
+	,"CALL_A"
+	,"CALL_B"
+	,"CALL_C"
+	,"CALL_D"
+	,"VAR_DECL"
+	,"IF"
+	,"BLOCK"
+	,"BREAK"
+	,"CONTINUE"
+    ],
+    "expr"   :
+    [
+	"INT"
+	,"FLOAT"
+	,"SYMBOL"
+	,"STRING"
+	,"EXPR_ID"
+	,"NEG"
+	,"PLUS"
+	,"MINUS"
+	,"TIMES"
+	,"DIVIDE"
+        ,"EQUALITY"
+	,"GREATER_THAN"
+	,"LESS_THAN"
+    ],
+    "other"  :
+    [
+	"STMT"
+	,"STMTS"
+	,"ARGLIST"
+	,"ID"
+	,"AST_EXPR_PAIR"
+	,"TOP_NODE"
+	,"PROC_DEF"
+
+    ]
+}

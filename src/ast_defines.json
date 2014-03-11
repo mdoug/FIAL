@@ -1,0 +1,47 @@
+{
+    "prefix"   : "FIAL",
+    "type"     : "AST",
+    "segments" : ["stmt", "expr", "other"],
+    "stmt"     :
+    [
+	"ASSIGN"
+	,"CALL_A"
+	,"CALL_B"
+	,"CALL_C"
+	,"CALL_D"
+	,"VAR_DECL"
+	,"IF"
+	,"BLOCK"
+	,"BREAK"
+	,"CONTINUE"
+    ],
+    "expr"   :
+    [
+	"INT"
+	,"FLOAT"
+	,"SYMBOL"
+	,"STRING"
+	,"EXPR_ID"
+	,"NEG"
+	,"PLUS"
+	,"MINUS"
+	,"TIMES"
+	,"DIVIDE"
+        ,"EQUALITY"
+	,"GREATER_THAN"
+	,"LESS_THAN"
+    ],
+    "other"  :
+    [
+	"STMT"
+	,"STMTS"
+	,"ARGLIST"
+	,"ID"
+	,"EXPR_PAIR"
+	,"TOP_NODE"
+	,"TOP"
+	,"PROC_DEF"
+
+
+    ]
+}

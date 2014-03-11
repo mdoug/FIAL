@@ -1,0 +1,28 @@
+{
+    "prefix"   : "FIAL",
+    "type"     : "ERROR",
+    "segments" : ["interp", "script", "other"],
+    "interp"   :
+    [
+	"NO_ERROR"
+	,"BAD_ALLOC"
+	,"LOAD"
+	,"PARSE"
+	,"DUPLICATE_PROC"
+    ],
+
+    "script"   :
+    [
+	"UNDECLARED_VAR"
+	,"UNKNOWN_LIB"
+	,"UNKNOWN_PROC"
+	,"VARIABLE_REDECLARED"
+	,"INVALID_EXPRESSION"
+	,"INVALID_ARGS"
+    ],
+
+    "other"   :
+    [
+	"RUNTIME"
+    ]
+}

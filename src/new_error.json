@@ -1,0 +1,8 @@
+{
+    "__comment" :
+"
+This is used with a the autogenerating script in ../utils.
+",
+    "errors"   :
+    [
+	["BAD_SYMBOL_ALLOC", "

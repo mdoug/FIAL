@@ -1,0 +1,63 @@
+Informal language definition.....
+
+This is all outdated.  The only thing resembling current documentation
+at this point is the bison/lex input files, not that they are well
+commented, just that to some degree they are self documenting.
+
+the intro.txt file is more current than this, but it too is falling
+out of date.
+
+note the different approach, library routines will not be requiring
+any additional grammer.  Rather all of that will be done with library
+routines.  It will be an error to clobber a standard library name.
+
+top:
+EMPTY
+| proc_def
+| top proc_def
+
+proc_def:
+ID '(' arglist ')' body
+
+arglist:
+
+| ID
+| arglist ID
+
+body:
+'{' statements '}'
+
+statements:
+EMPTY
+| statemnet
+| statements statement
+
+
+block:
+body
+| ID body
+
+
+statement:
+var_decl     ';'
+call         ';'
+assignment   ';'
+break        ';'
+continue     ';'
+if
+
+call:
+  ID              '(' arguments ')'
+| ID,  ID         '(' arguments ')'
+| call expr       '(' arguments ')'
+| call expr, expr '(' arguments ')'
+
+var_decl:
+VAR ID
+| var_decl ',' ID
+
+
+expr:
+
+c-style expressions, no assignment (Python style expressions, I
+guess.)

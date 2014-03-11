@@ -1,0 +1,18 @@
+FIAL is a language, implemented in C, for the purpose of using by an
+embedding C application through a C api.
+
+The goals of the language is to provide a scripting language that
+imposes as few design constraints upon the embedding application as
+possible, and which has as low of an overhead for making calls into
+and out of to the embeded application as possible.
+
+The main goal of the scripting language is to abstract over memory, so
+that the programmer concerns himself only with the values of
+variables, and not their location in computer memory.  It should, for
+example, be impossible to segfault from within the language.  It does
+not aim to provide much abstraction over flow control.
+
+Additional goals are an easy to use C api, a language that is
+enjoyable for programmers to program in, good dynamic typing, a
+convenient collection of data structures, snappy enough performance.
+

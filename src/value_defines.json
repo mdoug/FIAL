@@ -1,0 +1,29 @@
+{
+    "prefix"   : "FIAL",
+    "type"     : "VALUE",
+    "segments" : ["all"],
+    "all"      :
+    [
+	"NONE"
+	,"END_ARGS"
+	,"ERROR"
+
+	,"INT"
+	,"FLOAT"
+	,"SYMBOL"
+	,"STRING"
+	,"TYPE"
+	,"REF"
+
+	,"MAP"
+	,"ARRAY"
+	,"TEXT_BUF"
+
+	,"NODE"
+	,"C_FUNC"
+	,"LIB"
+	,"C_LIB"
+	,"LIB_ENTRY"
+	,"USER"
+    ]
+}

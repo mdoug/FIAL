@@ -1,0 +1,12 @@
+#emacs backups
+\#*#
+*~
+
+#zipity do da
+*.zip
+
+#more binary stuff
+*.o
+*.a
+*.lib
+*.exe

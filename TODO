@@ -1,0 +1,167 @@
+TODO
+
+oh man there is so much stuff, this has gotten so hard......
+
+------------------------------
+
+(*) add a FIAL proc object, in order to create callbacks, think about
+    whether or not this can be integrated with the improved top level
+    interface.  Well, I've started on this.  I don't know what's best,
+    I'm just going to go back and muddle through using what I have in
+    bcve.
+
+(*) I am going to have to add a table of copy procs as well,
+    otherwise, containers won't be able to copy anything.  This will
+    clean up container usage considerably.
+
+(*) improved top level interface.  Also, a check arg function for
+    writing C funcs.
+
+(*) set up loading/running state stuff.  The interpreter should only
+    be changed when it is in a loading stage, afterwords it should be
+    read only.  Also, I took out the auto running of "load", since it
+    isn't needed yet, since the read only stuff isn't put in yet.
+    Don't really need this until concurrency.
+
+(*) figure out what I am doing with arrays/stacks/fifos/deques etc,
+    and implement it.  Stacks I think are the preferred way, but fifos
+    are also obviously convenient.  a way to convert this stuff would
+    be nice, having them all really be the same internally would be
+    even better.
+
+(*)  get "real" data structures --
+
+    (*) Get an array type structure for the value stack.  I think a
+        realloc would be really bad here, so I am leaning more towards
+        dealing with linked lists of arrays I can consider optomizing
+        this a little bit to reduce malloc calls, but just getting the
+        basic structure up would be a good start.
+
+    (*) And then, basically, fix all the data structures to be
+        somewhat more sane than single linked listing everything.  I
+        think a good, easy place to go, is to generally adopt qsort
+        and bsearch as the way to deal with associative arrays.
+        except for the replacement of the "env->block_stack"
+        structure, that will be a single vector of values, with some
+        "stack pointer" type values in it, combined with a symbol
+        table for lookups.  At least for a first try it wouldn't be so
+        bad.  At this stage I might make some api/parser changes as
+        well, since some of these routines would be more efficient if
+        they knew how large to make the initial array.
+
+(*) improved string support -- characters, slices, to at least allow
+some remedial string processing.
+
+ONGOING
+
+(*) Flesh out with library routines/special forms, but try to avoid
+adding syntax -- pretty sure everything can be done without it now.
+
+   (*) raw buffer
+   (*) files
+
+(*) yield statements!
+
+(*) Create fial to C compiler -- preferably using FIAL, but python is
+another possibility.  C is also a reasonable choice, it would just
+might be a tad harder to use it than I would like -- it is, at bottom,
+largely a string processing problem.  And doing it in FIAL would be a
+good exercise.
+
+----------------------------------------
+
+NOTES:
+
+--------------------
+
+C API redux
+
+--------------------
+
+(*) ok, really, the distinction between a FIAL proc and a C function
+exists at the library level.  So, to some extent, what I should do, is
+rewrite my library structure to be a typed union.
+
+BUT --
+
+There is no need to ever attach a library to an execution environment.
+SO -- my current FIAL_library structure is fine, I just have to make C
+library structure for C libraries, and a tagged union for the
+interpreter's lib container.  Then, I just have to resolve what type
+of library it is on lookup, essentially whenever a library routine is
+called -- which is exactly when I would have to do it now that I have
+the procedures as tagged unions.
+
+SO -- keep FIAL_library essentially as it is (only put the FIAL
+procedure structure in it directly), rewrite the C function structure,
+Change the interpreter.libs to be a container of tagged unions of FIAL
+and C libraries, and then change the library procedure lookup
+functions to check the type of library, instead of the type of
+procedure.
+
+C functions putting their own library on the exec_env for the purpose
+of passing it around was never the intended purpose of this, and since
+that is the only thing that is effected, nothing of value is lost.
+
+so......
+--------------------
+
+Errors:
+
+OK, this is more or less done now.  Obviously, there is room for
+improvement, but it is now generally working, and it's fairly obvious
+that this set up is going to work. If anything, it's overkill.
+
+--------------------
+
+Structural todo:
+
+(*) on lib creation, I should make sure that a library's symbol isn't
+clobbered by the omni lib, and at least warn if it is.  But I can hold
+off on this until I have a better error system.
+
+--------------------
+
+Symbols will only make sense in relationship to a particular
+interpreter.  It will be the programmer's responsiblity to keep them
+straight.  Helper functions / containers might be provided later --
+the difficulty only arises when using the C api, or when using a
+library that creates its own FIAL interpreter.
+
+--------------------
+
+C api, design:
+
+--------------------
+
+Fundamentally, there are three interfaces:
+
+(a) top level -- create interpreter, load libraries, run procedures,
+destroy interpreters, etc.
+
+(b) library -- define libraries with functions to be called as if they
+qwere fial procs.
+
+(c) types -- define a type, not much more to it than that.  I think a
+library and proc are fine for the purpose of a derez proc.
+
+--------------------
+
+----------------------------------------
+
+IDEAS:
+
+--------------------
+
+(*) another idea ist he ability to "mount" a symbol map, so that its
+values can be referenced as variables.  Not sure how useful this would
+be, but combined with dynamic typing, who knows?  But this be hard to
+compile well....
+
+(*) I think reasonably easy to implement at the interpreted stage
+would be a "yield" or something like that, that basically just exits
+back to the embedding application, leaving the execution environment
+in a yielded state.  This could then be restarted by the application.
+Since arguments are passed in by reference, it is would be easy to do
+real work in the procedure, and then yield when a result is reached,
+letting the pass by reference idea do its work.

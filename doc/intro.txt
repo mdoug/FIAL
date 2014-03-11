@@ -1,0 +1,482 @@
+----------------------------------------------------------------------
+
+Welcome to the FIAL (*fine*, iterative, algorithmic, language)
+introduction!
+
+--------------------------------------------------
+
+Library
+
+--------------------
+
+Whereas other language primarily concern themselves with creating
+programs, FIAL's primary purpose is to create libraries.  A library
+can be viewed as a collection of procedures, or alternatively,
+a program which has multiple entry points.
+
+By convention a library that is meant to be run as a program will have
+a "run" procedure, which is the function that the interpreter calls by
+default.
+
+A library must be defined in a single source file.  A FIAL source file
+consists of nothing but a sequence of procedure ("proc") definitions.
+All of these procs are exposed to other FIAL libraries that load them,
+or to another application via the C api.
+
+--------------------------------------------------
+
+Part I:
+
+Variables, values, expressions, and assignments.
+
+--------------------------------------------------
+
+Variables:
+
+--------------------
+
+Variables must be declared before they are used, though it should be
+noted that they are dynamically scoped.  But that will be discussed
+later.  Declarations are made using the keyword "var", followed by a
+comma separated list of identifiers:
+
+----
+
+var my_var1, my_var2, my_var3;
+
+----
+
+The semi-colon appears after every statement, except for blocks.
+Identifiers are a sequence of letters, underscores, and numbers,
+except that it cannot begin with a number.
+
+------------------------------
+
+Values:
+
+--------------------
+
+Variables hold values.  Values are dynamically typed -- any variable
+can hold any value.
+
+--------------------
+
+FIAL has numbers!  (yay, numbers)
+
+(*) Integers: 1, 2, -29, 0
+(*) Floats: 1.0, 3.0, -5.0 (you can use exponent stuff too I just
+never do so it probably doesn't work even though it should.)
+
+--------------------
+
+FIAL also has string literals:
+
+(*) Strings:   "i'm a string.  pleased to meet you."
+
+--------------------
+
+FIAL has symbols.  Symbols are any text that would be a legal
+identifier, proceeded by a dollar sign:
+
+(*) Symbols: $symbol, $another_symbol, $woohoo
+
+Symbols are pretty useful, a symbol is equal to other symbols that
+have the same text, and inequal to anything else.  They are about as
+efficient as integers during use, and can be more descriptive.
+
+They are also the only thing that can be used as keys in symbol maps,
+which are a compound data structure.
+
+--------------------
+
+FIAL also has existential types -- i.e., values which represent the
+differnet types that values can have.  A discussion of the use of
+these values should be given somewhere, but not here, and I don't know
+where.
+
+FIAL also has other values, such as none, and error, etc. But this is
+basically what there is.
+
+------------------------------
+
+Expressions
+
+-------------------
+
+Expressions follow familiar, C style (or java style, or python style,
+etc., etc., style) rules.:
+
+5 + (15 - 2)
+
+equality:
+20 == 3.0
+
+But, currently no %, and no logic operators.  Also, assignment is not
+allowed in expressions, but only as a statement.  And, the arithmetic
+operators -- +, -, *, /, >, < -- will only work on numbers, while ==
+will work with anything.
+
+In an expression, variables can be used, but it will be an error if
+they do not hold the proper type, or are undeclared:
+
+my_var + 25 * my_other_var
+
+--------------------
+
+Assignments:
+
+An assignment is an identifier, followed by an '=', followed by an expression:
+
+my_var = (10 + 2) == (6 * 2);
+my_var = my_other_var;
+
+
+--------------------------------------------------
+
+Part 2:
+
+Flow control -- named blocks, if,  break and continue.
+
+--------------------------------------------------
+
+Block:
+
+FIAL has blocks.  blocks have two purposes:
+
+(*) to delineate the scope of variables
+(*) Combined with if, break, and continue, they provide flow control.
+
+A block is defined by an optional name, followed by statements
+surrounded by curly brackets --
+
+------
+
+my_block {
+	 var v1, v2;
+	 v1 = 10;
+	 v2 = 20;
+}
+
+-----
+
+Nothing outside of my_block will be able to access v1 or v2, which are
+destroyed when the block reaches its end.  The name is optional.
+
+--------------------------------------------------
+
+FIAL supports if statements:
+
+---
+
+if expr block;
+
+---
+
+This will execute "block" if expr evaluates to true (currently, non
+zero integers are considered true, and maybe some other stuff, I
+forget. Just use equalities and stuff!  I will figure this out better
+later. )
+
+Note:  no else.  Else is for suckas.
+
+----------------------------------------
+
+break and continue:
+
+----------------------------------------
+
+Both break and continue follow similar rules, though they do different
+things.
+
+You can break out of the nearest block by using break.  You can break
+out of any named block by using break followed by the name of the block.
+
+Continue works similarly, except instead of exiting the block and
+moving forward, it causes the block to repeat itself.
+
+Thus, using just these four things, we have sufficient flow control
+mechanisms.  Consider the folowing, using a block named else to effect
+variables based on whether or not an equality holds :
+
+--------------------
+
+else {
+     if(var1 == var2) {
+     	     var1 = 0;
+	     break else;
+     }
+     var2 = var1 - 10;
+}
+
+--------------------
+
+this can be extended to "switch" or "case" statements, consider the
+following psuedo-code:
+
+--------------------
+
+switch {
+       if(something) {
+       		     do_something;
+		     break switch;
+	}
+	if (something_else) {
+	          do_something_else;
+		  break switch;
+	}
+	if (yet_again_something_else) {
+	           do_yet_another_thing;
+		   break switch;
+	}
+}
+
+--------------------
+
+Note that the above was pseudo-code -- an identifier followed by a
+semicolon is not legal in FIAL.
+
+
+--------------------
+
+Loops are also simple, this example is using a block named "loop" to
+add numbers 1 through 10.
+
+--------------------
+
+var counter, stop_at, accumulater;
+counter = 0;
+stop_at = 10;
+accumulater = 0;
+
+loop {
+     if ( counter == 10) {
+     	break loop;
+     }
+
+     accumulater = accumulater + (counter + 1);
+
+     counter = counter +1;
+     continue;
+}
+
+--------------------------------------------------
+
+Part 3:
+
+Procedures
+
+----------------------------------------
+
+Proc defs
+
+--------------------
+
+Procedures can only be defined at the top level of the file. The syntax is :
+
+----
+proc_name ( arguments ) { stmts.... }
+----
+
+Arguments are a comma seperated list of identifiers.  The name of the
+proc can be used in break and continue statemnets.
+
+
+--------------------
+
+Proc calls
+
+--------------
+
+Calls to procs defined in the same file take the form:
+
+
+-----
+proc_name (var1, var2, var3);
+----
+
+All of the arguments must be variable names, they are NOT expressions.
+Variables are always passed by reference.
+
+Thus:
+
+--------------------
+
+var a, b, c, d;
+a = 10;
+b = 20;
+c = 30;
+d = 40;
+
+proc(a, b, c, d);
+
+-----------------
+
+Is correct.  proc can change any of the variables a, b, c, or d.
+
+This, to some extent, results in duplicating effort, since variables
+must be assigned, and then listed in the arguments.
+
+The following represents this:
+
+--------------------
+
+SomeBigVariableNameMyBossMakesMeUse = 200;
+AnotherBigVariableName  = 20;
+OhMyGodYouHaveGotToBeKiddingMe = 15;
+
+SomeFunctionWithABigLongName(SomeBigVariableNameMyBossMakesMeUse,
+       			     AnotherBigVariableName,
+                             OhMyGodYouHaveGotToBeKiddingMe);
+
+SomeBigVariableNameMyBossMakesMeUse = 20;
+AnotherBigVariableName  = 40;
+OhMyGodYouHaveGotToBeKiddingMe = 500;
+
+SomeFunctionWithABigLongName(SomeBigVariableNameMyBossMakesMeUse,
+       			     AnotherBigVariableName,
+                             OhMyGodYouHaveGotToBeKiddingMe);
+
+SomeBigVariableNameMyBossMakesMeUse = 300;
+AnotherBigVariableName  = 12;
+OhMyGodYouHaveGotToBeKiddingMe = 55;
+
+SomeFunctionWithABigLongName(SomeBigVariableNameMyBossMakesMeUse,
+       			     AnotherBigVariableName,
+                             OhMyGodYouHaveGotToBeKiddingMe);
+
+--------------------
+
+There is a way to alleviate this utilizing dynamic scoping, given in
+the next section.
+
+----------------------------------------
+
+Dynamic Scoping
+
+------------------------------
+
+A proc can also change any variable -- whether passed to it or not!  This
+is because procedures are dynamically scoped -- i.e., variables are
+looked up at runtime, and can end up being bound to variables in the
+calling functions.
+
+This allows them to be used to alleviate some of the sputtering when
+calling functions repeatedly:
+
+--------------------
+
+do_it () {
+
+       SomeBigVariableNameMyBossMakesMeUse = a;
+       AnotherBigVariableName              = b;
+       OhMyGodYouHaveGotToBeKiddingMe      = c;
+
+       SomeFunctionWithABigLongName(SomeBigVariableNameMyBossMakesMeUse,
+			            AnotherBigVariableName,
+                                    OhMyGodYouHaveGotToBeKiddingMe);
+}
+
+my_proc() {
+      var a, b, c;
+
+      a = 40;
+      b = 50;
+      c = 35;
+      do_it();
+
+      a = 80;
+      b = 2000;
+      c = 2329;
+      do_it();
+
+      a = 25;
+      b = 299;
+      c = 30;
+      do_it();
+}
+
+--------------------
+
+Will be equivalent to the code given above, including having the side
+effects of setting those variables with the big long names, and
+passing those variables as references.
+
+--------------------
+
+If you have variables that you do not want changed by a proc, then you
+can protect them using variable declarations in nested blocks:
+
+--------------------
+
+var cant_get_me;
+cant_get_me = 20;
+{
+	var cant_get_me;
+
+	some_fun_that_wants_to_get_me();
+}
+
+--------------------
+
+Eventually, this problem will be more easily addressed, since I will have :
+
+(*) a helper doc generating type program that will automatically list
+variables in functions that are unbound.
+
+(*) a way to create a new execution environment to call a procedure in
+-- this would be the way to insulate all of your variables from the
+calling function.
+
+------------------------------------------------------------
+
+Part 4:
+
+Libraries, redux
+
+----------------------------------------
+
+Calls to procs in libraries are done using this notation:
+
+---------
+lib_name, proc_name ( arguments );
+---------
+
+they are can either be loaded by the fial proc, or be everywhere
+automatically, currently called omni libs.  Loading a lib currently
+works as follows:
+
+--------------------
+
+omni, load ($my_lib, "my_lib.fial");
+my_lib, my_proc();
+
+--------------------
+
+Note: all the following stuff is going to be changed, but this is how
+it works for now:
+
+Libs can be "omni" libs, which are present everywhere, automatically.
+One of them is the lib called "omni".  In this is the proc "load"
+which is used to load other libraries, by passing it the symbol that
+the library will be accessed by, and the filenmae in which it lives.
+
+--------------------
+
+Currently, I have :
+
+omni, print ( num ) -- prints a number.
+omni, type_of   ( val ) -- gets the objects type
+omni, register  ( ret ) -- gets a new type object.
+
+symbol maps -- use symbols as keys for values:
+
+map, create ( new_map );
+map, set    ( map, symbol, value );
+map, get    ( value, map, symbol );
+
+array, create ( new_array );
+array, set    (array, index, value);
+array, get    (value, array, index);
+
+global, get (value, symbol) -- gets a value from a library's global symbol map.
+global, set (symbol, value) -- sets a value from a library's global symbol map.
