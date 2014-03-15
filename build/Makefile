@@ -3,7 +3,7 @@ PACKAGE_DIR=./package
 INCLUDEDIR=${SOURCEDIR}
 CC=cc
 AR_OBJS=lex.yy.o parser.tab.o interp.o basic_types.o loader.o ast.o omni.o \
-	text_buf.o api.o
+	text_buf.o api.o sys_bsd.o
 OBJS=main.o
 CFLAGS=-I${INCLUDEDIR} -I. -Wall -Wno-unused-value -g
 BISONFLAGS=-d
