@@ -29,8 +29,6 @@ struct FIAL_exec_env;
 struct FIAL_interpreter;
 struct FIAL_finalizer;
 
-typedef int FIAL_symbol;
-
 /*
  * Defined elsewhere
  */

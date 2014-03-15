@@ -56,7 +56,7 @@ extern interpreter *current_interp;
 
 static inline int add_lib_from_ast(interpreter             *interp,
 				   node                    *top_node,
-				   char                    *lib_label,
+				   const char             *lib_label,
 				   union FIAL_lib_entry   **ret_lib,
 				   struct FIAL_error_info  *error)
 
@@ -143,7 +143,6 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 	union FIAL_lib_entry *lib_ent = NULL;
 
 	FILE* input_file = NULL;
-	value val;
 	library *new_lib = NULL;
 	symbol sym;
 	int tmp;

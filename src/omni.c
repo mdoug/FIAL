@@ -160,12 +160,12 @@ int load_lib (int argc, struct FIAL_value **args,
 			return -1;
 		}
 	}
-	memset(&env->error, 0, sizeof(&env->error));
+	memset(&env->error, 0, sizeof(env->error));
 	ret = FIAL_load_string(env->interp, args[1]->str, &lib_ent, &env->error);
 	if(ret < 0)
 		return -1;
 
-	memset(&env->error, 0, sizeof(&env->error));
+	memset(&env->error, 0, sizeof(env->error));
 
 	/* FIXME, this quite simply isn't good enough -- have to pass
 	 * back dynamic load info.  */

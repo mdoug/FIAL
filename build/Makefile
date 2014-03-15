@@ -1,15 +1,15 @@
 SOURCEDIR=../src/
 PACKAGE_DIR=./package
 INCLUDEDIR=${SOURCEDIR}
-CC=gcc
+CC=cc
 AR_OBJS=lex.yy.o parser.tab.o interp.o basic_types.o loader.o ast.o omni.o \
-	text_buf.o system.o api.o
+	text_buf.o api.o
 OBJS=main.o
 CFLAGS=-I${INCLUDEDIR} -I. -Wall -Wno-unused-value -g
 BISONFLAGS=-d
 LDFLAGS=-L.
 LDLIBS=-lfial
-EXECUTABLE=FIAL.exe
+EXECUTABLE=FIAL
 ARCHIVE=libfial.a
 
 GENERATED_HEADERS=ast_def_short.h value_def_short.h error_def_short.h

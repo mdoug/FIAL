@@ -190,7 +190,7 @@ INT                     {$$ = NODE(AST_INT,     NULL, NULL, @$.line, @$.col); $$
 | STRING                {$$ = NODE(AST_STRING,  NULL, NULL, @$.line, @$.col); $$->str = $1;}
 
 | '-' expr %prec NEG    {$$ = NODE(AST_NEG,          $2, NULL, @$.line, @$.col);}
-| '(' expr ')'          {$$ = $2 }
+| '(' expr ')'          {$$ = $2; }
 | expr '+' expr         {$$ = NODE(AST_PLUS,         $1, $3, @$.line, @$.col);}
 | expr '-' expr         {$$ = NODE(AST_MINUS,        $1, $3, @$.line, @$.col);}
 | expr '*' expr         {$$ = NODE(AST_TIMES,        $1, $3, @$.line, @$.col);}
