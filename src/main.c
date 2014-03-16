@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 	FIAL_install_constants(interp);
 	FIAL_install_std_omnis(interp);
 	FIAL_install_text_buf(interp);
-	FIAL_install_system_lib (interp);
+	FIAL_install_system_lib (interp); 
 
 	ret = FIAL_load_string  (interp, filename, &lib_ent, &err );
 	if(ret == -1) {

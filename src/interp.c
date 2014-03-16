@@ -441,7 +441,7 @@ static inline int set_env_symbol (exec_env *env, symbol sym, value *val)
 	value tmp;
 	block *iter = env->block_stack;
 
-	memset(&tmp, 0, sizeof(val));
+	memset(&tmp, 0, sizeof(tmp));
 
 	for(; iter != NULL; iter = iter->next) {
 		if(!iter->values)

@@ -1,24 +1,11 @@
- /**********************************************************************
- *								       *
- *  This file contains stuff for the system library. 		       *
- *								       *
- *  When I port to the first system other than windows I will worry    *
- *  about separating out the stuff for different systems.  	       *
- * 								       *
- *  I think it would appear to be simplest, to rewrite this file for   *
- *  FreeBSD, the #ifdefs would be all pervasive otherwise. 	       *
- * 								       *
- *								       *
- *  man, I don't know what I'm doing, this Windows unicode stuff is so *
- *  confusing.  I am just going to pretend it doesn't exist until I am *
- *  swarmed by a million trillion error messages.		       *
- *								       *
- **********************************************************************/
-
-#include <windows.h>
-#include <process.h>   /* need _getpid ()  */
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 #include "interp.h"
 #include "basic_types.h"
@@ -29,60 +16,38 @@
 #include "text_buf.h"
 #include "loader.h"
 
-/*
- *  Functions for calling from C.
- */
 
+/* another pita -- this will have to get rewritten somewhat with the
+ * new sequence data structure.  */
 
-/*
- *  Functions for calling from FIAL
- */
-
-/*
- *  This will return all the filenames in a directory, in an array of
- *  text_bufs.  Note to self -- make some text_bufs.
- */
-
-/*
-  return --
-
-  -1:
-  bad alloc
-
-  -2:
-  path too long.
-
-*/
 
 static int get_filenames (struct FIAL_array *ar,  char *dir_name,
 			  int len, struct FIAL_interpreter *interp)
 {
-	char buf[MAX_PATH];
-	WIN32_FIND_DATA find_data;
-	HANDLE find_handle = INVALID_HANDLE_VALUE;
 	struct FIAL_value val;
+	int i;
+	struct dirent *dp;
+	DIR *dfd;
 
-	int i = 0;
+
 	memset(&val, 0, sizeof(val));
+	i = 0;
+	dp = NULL;
+	dfd = opendir(".");
 
-	if (len == 0)
-		len = strlen(dir_name);
-
-	if(len + 3 > MAX_PATH)
-		return -2;
-
-	strcpy(buf, dir_name);
-	strcpy(buf + len, "\\*");
-
-	find_handle = FindFirstFile(buf, &find_data);
-	if(find_handle == INVALID_HANDLE_VALUE) {
+	if(!dfd) {
 		return 1;
 	}
-	do {
-		int tmp;
+	while((dp = readdir(dfd)) != NULL) {
+		struct stat s;
 		struct FIAL_text_buf *tb = FIAL_create_text_buf();
 
 		if(!tb) {
+			
+			/* should I clean this up, or just return the
+			 * partial?  I'm just returning the partial
+			 * now. */
+			   
 			return -1;
 		}
 
@@ -91,12 +56,12 @@ static int get_filenames (struct FIAL_array *ar,  char *dir_name,
 		 * right now I guess, I will just improve it as I go
 		 * along....
 		 */
-
-		if(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		if(stat(dp->d_name, &s) || S_ISDIR(s.st_mode))
 			continue;
-		if((tmp = FIAL_text_buf_append_str(tb, find_data.cFileName)<0)){
+
+		if(FIAL_text_buf_append_str(tb, dp->d_name)<0) { 
 			FIAL_destroy_text_buf(tb);
-			return tmp;
+			return -2;
 		}
 
 		val.type = VALUE_TEXT_BUF;
@@ -107,13 +72,21 @@ static int get_filenames (struct FIAL_array *ar,  char *dir_name,
 		assert(val.type == VALUE_NONE);
 		assert(val.n    == 0);
 
-	} while (FindNextFile(find_handle, &find_data) != 0);
+	}
 
 	/*FIXME: error checking..... */
 
 	return 0;
 
 }
+
+/* oh god this is aweful, but I'm just cutting and pasting this entire
+   function from the WINDOWS thing.  Obviously, what I need is a
+   sys_common.c, a sys_bsd.c, and a sys_win.c, but the problem is
+   these functions are declared as static, so they have to be in the
+   same source file.  Obviously nothing that can't be worked around,
+   and that this is unacceptable as a long term solution, but for now
+   it is pretty easy. */
 
 static int get_directory_filenames (int argc, struct FIAL_value **argv,
 				    struct FIAL_exec_env *env, void *ptr)
@@ -183,14 +156,14 @@ static int get_directory_filenames (int argc, struct FIAL_value **argv,
 	return ret;
 }
 
+/* ditto for this function, cut and paste with a one character change...... */
+
 static int get_pid (int argc, struct FIAL_value **args,
 		    struct FIAL_exec_env *env, void *ptr)
 {
-	DWORD pid = _getpid();  /* i don't know how else to do this,
+	pid_t pid = getpid();  /* i don't know how else to do this,
 				 * GetCurrentProcessId appears to be
 				 * C++ only...*/
-
-	assert(sizeof (DWORD) == sizeof(int));
 
 	if(argc > 0) {
 		FIAL_clear_value (args[0], env->interp);
@@ -203,18 +176,16 @@ static int get_pid (int argc, struct FIAL_value **args,
 
 static int check_if_dir (char *path)
 {
-	WIN32_FIND_DATA find_data;
-	HANDLE find_handle = INVALID_HANDLE_VALUE;
-
-	find_handle = FindFirstFile(path, &find_data);
-	if(find_handle == INVALID_HANDLE_VALUE) {
+	struct stat st;
+	if(!stat(path, &st))
 		return 0;
-	}
-	if(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+	if(S_ISDIR(st.st_mode))
 		return 1;
-	return 0;
+	else 
+		return 0;
 }
 
+/* more cut and paste */
 static int is_dir (int argc, struct FIAL_value **argv,
 		   struct FIAL_exec_env *env, void *ptr)
 {
@@ -278,6 +249,9 @@ static int get_env (int argc, struct FIAL_value **argv,
 	return 0;
 }
 
+/* this is again all cut and paste.  I think it will be best to use
+ * one source file, this is ridiculous.... */
+
 static char *get_str (struct FIAL_value *val)
 {
 	char *str;
@@ -299,6 +273,7 @@ static char *get_str (struct FIAL_value *val)
 	return str;
 }
 
+
 static int system_run_cmd (int argc, struct FIAL_value **a,
 		    struct FIAL_exec_env *env, void *ptr)
 {
@@ -313,63 +288,6 @@ static int system_run_cmd (int argc, struct FIAL_value **a,
 	return 0;
 }
 
-/* yeah, this is definitely a special purpose function at this point,
- * I should move it to my comic viewer.  */
-
-static int create_process_run_cmd(int argc, struct FIAL_value **argv,
-				  struct FIAL_exec_env *env, void *ptr)
-{
-	char *str;
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	int ret;
-
-	ZeroMemory( &si, sizeof(si) );
-	si.cb = sizeof(si);
-	ZeroMemory( &pi, sizeof(pi) );
-
-	if(argc < 1 || !(argv[0]->type == VALUE_STRING ||
-			 argv[0]->type == VALUE_TEXT_BUF)) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "Must pass string or text buf"
-			"to run cmd.";
-		FIAL_set_error(env);
-		return -1;
-	}
-
-
-	str = get_str(argv[0]);
-	// Start the child process.
-	if( !CreateProcess( NULL,           // No module name (use command line)
-			    str,            // Command line
-			    NULL,           // Process handle not inheritable
-			    NULL,           // Thread handle not inheritable
-			    FALSE,          // Set handle inheritance to FALSE
-			    CREATE_NO_WINDOW,              // No creation flags
-			    NULL,           // Use parent's environment block
-			    NULL,           // Use parent's starting directory
-			    &si,            // Pointer to STARTUPINFO structure
-			    &pi )           // Pointer to PROCESS_INFORMATION structure
-		)
-		ret = 1;
-	else
-		ret = 0;
-
-	if(pi.hProcess != NULL)
-		WaitForSingleObject(pi.hProcess, INFINITE);
-
-	return ret;
-}
-
-
-
-int (*run_cmd) (int argc, struct FIAL_value **, struct FIAL_exec_env *, void *)=
-#ifdef USE_SYSTEM_RUN_CMD
-    system_run_cmd;
-#else
-create_process_run_cmd;
-#endif /*USE_SYSTEM_RUN_CMD*/
-
 int FIAL_install_system_lib (struct FIAL_interpreter *interp)
 {
 	struct FIAL_c_func_def lib_system[] = {
@@ -377,7 +295,7 @@ int FIAL_install_system_lib (struct FIAL_interpreter *interp)
 		{"get_pid"   , get_pid                 , NULL},
 		{"is_dir"    , is_dir                  , NULL},
 		{"get_env"   , get_env                 , NULL},
-		{"run"       , run_cmd                 , NULL},
+		{"run"       , system_run_cmd          , NULL},
 		{NULL, NULL, NULL}
 	};
 

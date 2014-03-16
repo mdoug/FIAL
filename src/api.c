@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "interp.h"
+#include "api.h"
 #include "ast.h"
 #include "ast_def_short.h"
 #include "basic_types.h"

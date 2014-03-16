@@ -9,11 +9,18 @@
 #include "libs.h"
 #include "text_buf.h"
 
+<<<<<<< HEAD
+/* this is here, but soon these will only be the full versions, and
+   short ones will have to be included manually*/
+#include "ast_def_short.h"
+#include "value_def_short.h"
+=======
 
 /* this stuff is not permanent, but I'm putting it in here anyway for
    now. */
 #include "value_def_short.h"
 #include "ast_def_short.h"
+>>>>>>> 66017bf3600b2e88834c634e24ad18b059fb8a4f
 #include "error_def_short.h"
 
 #endif /*FIAL_H*/
