@@ -218,20 +218,5 @@ struct FIAL_interpreter {
 	struct FIAL_master_type_table          types;
 };
 
-#define FIAL_PROC_FIAL 0
-#define FIAL_PROC_C    1
-
-struct FIAL_proc {
-	int type;
-	struct FIAL_interpreter *interp;
-	union {
-		struct {
-			struct FIAL_library        *lib;
-			struct FIAL_ast_node      *proc;
-		} proc;
-		struct FIAL_c_func func;
-	};
-};
-
 
 #endif /* FIAL_INTERP_H */

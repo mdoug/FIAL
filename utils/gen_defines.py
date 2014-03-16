@@ -36,9 +36,12 @@ def main ():
 
     if prefix_type == "full":
         prefix = prefix + d["prefix"] + "_" + d["type"] + "_"
+        define_symbol = d["prefix"] + "_" + d["type"] + "_FULL" + "_H"
     elif prefix_type == "short":
         prefix = prefix + d["type"] + "_"
+        define_symbol = d["prefix"] + "_" + d["type"] + "_SHORT" + "_H"
     elif prefix_type == "none":
+        define_symbol = d["prefix"] + "_" + d["type"] + "_NONE" + "_H"
         pass
     else :
         print_usage()
@@ -57,12 +60,16 @@ def main ():
 
 """)
 
+    out.write("#ifndef " + define_symbol + "\n")
+    out.write("#define " + define_symbol + "\n\n\n")
+
     i = 0
 
     segments = d["segments"]
     for seg in segments:
         i = generate_segment(out, d[seg], prefix, i)
 
+    out.write("\n#endif /* " + define_symbol + " */\n")
     out.close()
 
 

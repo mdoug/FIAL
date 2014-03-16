@@ -52,6 +52,13 @@ int FIAL_run_strings (const char *lib_label,
 	return FIAL_run_proc (val.node, args, env);
 }
 
+/*
+ * this name isn't ideal, but it is what I have right now.  I think
+ * more descriptive names would be better, now that I have various
+ * types of object that correspond to the concept of "procedure", with
+ * a FIAL_ast_node not necessarily the most obvious.
+ */
+
 int FIAL_run_proc (struct FIAL_ast_node  *proc,
 		   struct FIAL_value     *args,
 		   struct FIAL_exec_env  *env)

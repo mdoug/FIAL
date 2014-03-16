@@ -4,13 +4,41 @@
 #include "interp.h"
 #include "basic_types.h"
 
+/*
+ * not sure this is the best place for this structure, it will be
+ * needed for the libraries which deal directly with procs /
+ * executions / threads.
+ */
+
+#define FIAL_PROC_FIAL 0
+#define FIAL_PROC_C    1
+
+/*
+ * I think I am going to refactor this, but I need something to move
+ * forward with.  Also not entirely sure I like the name, since
+ * generally C functions are referred to as "funcs", and this is
+ * general.
+ */
+
+struct FIAL_proc {
+	int type;
+	struct FIAL_interpreter *interp;
+	union  FIAL_lib_entry      *lib;
+	struct FIAL_value         *proc;
+};
+
+int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
+			       const char *lib_label,
+			       const char *proc_name,
+			       struct FIAL_interpreter *interp);
+
 int FIAL_run_strings (const char *lib_label,
 		      const char *proc_name,
 		      struct FIAL_value  *args,
 		      struct FIAL_exec_env *env);
+
 int FIAL_run_proc (struct FIAL_ast_node  *proc,
 		   struct FIAL_value     *args,
 		   struct FIAL_exec_env  *env);
-
 
 #endif /*FIAL_API_H*/
