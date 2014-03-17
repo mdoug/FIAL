@@ -1,7 +1,7 @@
 SOURCEDIR=../src/
 PACKAGE_DIR=./package
 INCLUDEDIR=${SOURCEDIR}
-CC=cc
+CC=gcc
 AR_OBJS=lex.yy.o parser.tab.o interp.o basic_types.o loader.o ast.o omni.o \
 	text_buf.o api.o sys_bsd.o
 OBJS=main.o
@@ -68,4 +68,3 @@ clean:
 	rm -f ${GENERATED_HEADERS}
 	rm -f ${EXECUTABLE} ${ARCHIVE}
 	rm -f flex_header.h lex.yy.c parser.tab.h parser.tab.c
-
