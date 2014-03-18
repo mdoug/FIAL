@@ -203,12 +203,12 @@ struct FIAL_master_type_table {
 	struct FIAL_finalizer *finalizers;
 };
 
-/*
- *  Ok, part of the C API rewrite, replacing libs with a different
- *  structure.
- */
+#define FIAL_INTERP_STATE_NONE   0
+#define FIAL_INTERP_STATE_LOAD   1
+#define FIAL_INTERP_STATE_RUN    2
 
 struct FIAL_interpreter {
+	int                                    state;
 	union  FIAL_lib_entry                  *libs;
 	struct FIAL_symbol_map                *omnis;
 	struct FIAL_symbol_map            *constants;   /* this is unnecessary, can be defined using c api */

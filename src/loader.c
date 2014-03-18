@@ -143,8 +143,6 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 	union FIAL_lib_entry *lib_ent = NULL;
 
 	FILE* input_file = NULL;
-	library *new_lib = NULL;
-	symbol sym;
 	int tmp;
 
 	int yyparse(void);
@@ -366,61 +364,9 @@ int FIAL_load_c_lib (struct FIAL_interpreter    *interp,
 	return 0;
 }
 
-/*
- * FIXME:
- * This shouldn't be here, i should make a file with outward facing C
- * stuff, and use this just for loading, but whatevs.
- */
-
-#define INITIAL_TYPE_TABLE_SIZE 50
-
-#if VALUE_USER > INITIAL_TYPE_TABLE_SIZE
-#error VALUE_USER cannot be larger than INITIAL_TYPE_TABLE_SIZE
-#endif /*VALUE_MAP >= INITIAL_TYPE_TABLE_SIZE*/
-
-static int map_dp_wrapper (struct FIAL_value *a,
-		       struct FIAL_interpreter *b,
-		       void   *c)
-{
-	return FIAL_destroy_symbol_map_value(a, b);
-}
-
-static int array_dp_wrapper (struct FIAL_value *a,
-			     struct FIAL_interpreter *b,
-			     void   *c)
-{
-	return FIAL_destroy_array_value(a, b);
-}
-
-struct FIAL_finalizer map_fin = {map_dp_wrapper, NULL};
-struct FIAL_finalizer array_fin = {array_dp_wrapper, NULL};
 
 /* return s-1 on allocation error */
 
-static inline int init_types (struct FIAL_master_type_table *mtt)
-{
-	size_t size;
-
-	mtt->finalizers = ALLOC((size = sizeof(*(mtt->finalizers)) *
-				  INITIAL_TYPE_TABLE_SIZE));
-	if(!mtt->finalizers) {
-		return -1;
-	}
-
-	mtt->cap = INITIAL_TYPE_TABLE_SIZE;
-	mtt->size = VALUE_USER;
-
-	assert(size);
-	memset(mtt->finalizers, 0, size);
-
-	mtt->finalizers[VALUE_MAP]   = map_fin;
-	mtt->finalizers[VALUE_ARRAY] = array_fin;
-
-/*
- * Add extra type finishers here.
- */
-	return 0;
-}
 
 int FIAL_add_omni_lib (struct FIAL_interpreter *interp,
 		       FIAL_symbol              sym,
@@ -443,12 +389,4 @@ int FIAL_add_omni_lib (struct FIAL_interpreter *interp,
 	interp->omnis->first  = entry;
 
 	return 0;
-}
-
-struct FIAL_interpreter *FIAL_create_interpreter ()
-{
-	interpreter *interp = ALLOC(sizeof(*interp));
-	memset(interp, 0, sizeof(*interp));
-	init_types(&interp->types);
-	return interp;
 }

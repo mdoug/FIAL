@@ -12,8 +12,6 @@
 #include "text_buf.h"
 
 
-#define ERROR(x) assert(0);
-
 /*TODO -- set up a C_FUNC macro --
 #define FIAL_C_FUNC(func_name)
 */
@@ -86,7 +84,7 @@ int test_print_args (struct FIAL_interpreter *interp)
 	args[1].str  = "Whodat!";
 	args[2].type = VALUE_END_ARGS;
 
-	return FIAL_run_proc(val.node, args, &env);
+	return FIAL_run_ast_node(val.node, args, &env);
 }
 
 int main(int argc, char *argv[])
@@ -120,7 +118,7 @@ int main(int argc, char *argv[])
 	FIAL_install_constants(interp);
 	FIAL_install_std_omnis(interp);
 	FIAL_install_text_buf(interp);
-	FIAL_install_system_lib (interp); 
+	FIAL_install_system_lib (interp);
 
 	ret = FIAL_load_string  (interp, filename, &lib_ent, &err );
 	if(ret == -1) {

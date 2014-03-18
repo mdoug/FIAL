@@ -5,11 +5,11 @@ CC=gcc
 AR_OBJS=lex.yy.o parser.tab.o interp.o basic_types.o loader.o ast.o omni.o \
 	text_buf.o api.o sys_bsd.o
 OBJS=main.o
-CFLAGS=-I${INCLUDEDIR} -I. -Wall -Wno-unused-value -g
+CFLAGS=-I${INCLUDEDIR} -I. -Wall -g -Werror-implicit-function-declaration
 BISONFLAGS=-d
 LDFLAGS=-L.
 LDLIBS=-lfial
-EXECUTABLE=FIAL
+EXECUTABLE=FIAL.exe
 ARCHIVE=libfial.a
 
 GENERATED_HEADERS=ast_def_short.h value_def_short.h error_def_short.h

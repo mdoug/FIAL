@@ -6,6 +6,8 @@
 
 #include "value_def_short.h"
 
+/* FIXME: clean this up, errors, etc.  OR, delete it, in favor of sequences */
+
 /*no way around it, I need to finalize replaced values in the set
   symbol routine. */
 

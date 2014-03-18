@@ -1,22 +1,37 @@
 TODO
 
+I have found my way into a certain ennui when dealing with this stuff,
+but I am almost to a good place with it, so I just have to keep
+moving.  Once concurrency kicks in, (a) everything will be harder, but
+(b) everything will be a lot more obviously useful.  As it is, you are
+programming with one hand tied behind your back, with no real gains
+from the sacrifices made.
+
 ------------
 
-Quick fixes:
+FIXME:
 
-* text_buf, append() should append multiple arguments. 
+-- array does not currently use errors correctly.  I shoudl remove
+   array, or fix it to be somewhat sane.  setting value (10000)
+   currently allocates a bunch of space for it, I think this behavior
+   is a little too accident prone for a scripting language.
 
 ------------
 
 ------------------------------
 
+There follows a somewhat lenghty discussion, but the immediate object
+is establishing load states / run states, and making the necessary
+changes to the loaders, the global omni, the load function.
+
+--------------------
+
 Ok, there are a number of related steps here --
 
 (*) add a FIAL proc object, in order to create callbacks, think about
     whether or not this can be integrated with the improved top level
-    interface.  Well, I've started on this.  I don't know what's best,
-    I'm just going to go back and muddle through using what I have in
-    bcve.
+    interface.  The structure is made, the interface is somewhat
+    improved.
 
 (*) improved top level interface.  Also, a check arg function for
     writing C funcs.
@@ -25,6 +40,18 @@ Ok, there are a number of related steps here --
     be changed when it is in a loading stage, afterwords it should be
     read only.  Also, I took out the auto running of "load", since it
     isn't needed yet, since the read only stuff isn't put in yet.
+
+    I need basically two states: "loading" and "running".  Then I
+    probably want to fix up my load routines, so that they
+    automatically call the "load" method of FIAL structures.  Then, I
+    want to make it so "globals" can only be set during a load.  Also,
+    adding symbols in run state should go into an auxiliary symbol
+    table on the environment.  Interpreters should start in load state
+    when made via functions.
+
+    At some point I want to create a function that returns FILE *'s
+    from the strings in load calls.  But, that is not needed yet, nor
+    will it be too difficult.
 
 (*) Concurrency.  I am currently thinking I will just use SDL threads,
     assuming they do what I need for now api wise.  Obviously, SDL is
@@ -61,7 +88,8 @@ set to read only, or load, etc.  It also needs a data structure that
 can represent a FIAL proc, otherwise FIAL procs for creating threads
 can't be made.
 
-So, first, I need to set up some sort of functions
+Setting up the FIAL interpreter states would allow me to create
+init/create functions which set the appropriate values.
 
 ----------------------------------------
 
@@ -83,16 +111,16 @@ Ok, i have an idea for this -- sequences.  They will have 3 primary
 functions: in (puts something in), first (takes the first element that
 was placed into the sequence), and last (takes the last element that
 was placed into the sequence.)  There will also be an access
-functions, which allow the sequence to be used as an array.  
+functions, which allow the sequence to be used as an array.
 
 The implementation will not be terribly hard I don't think.  Another
 idea is the ability to reverse them, so that in goes in the other
 side, and first and last are switched.  But I will worry about that
-later, it shouldn't be too hard though.  
+later, it shouldn't be too hard though.
 
 ----------------------------------------
 
-(*)  get "real" data structures --
+(*)  get "real" data structures for interpreter --
 
     (*) Get an array type structure for the value stack.  I think a
         realloc would be really bad here, so I am leaning more towards

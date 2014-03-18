@@ -4,7 +4,6 @@
 #include "interp.h"
 #include "basic_types.h"  /*needed for map stuff*/
 
-struct FIAL_interpreter *FIAL_create_interpreter ();
 
 int FIAL_load_lookup (struct FIAL_interpreter *interp,
 		     const char *lib_label,
