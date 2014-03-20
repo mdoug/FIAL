@@ -31,15 +31,21 @@ typedef struct FIAL_value             value;
 extern node *top;
 extern interpreter *current_interp;
 
-/*this is a little better than just asserting for errors, since now I
-  at least can search through later for LOAD_ERROR.  Main problem with
-  just asserts as errors is that it isn't clear whats an assertion and
-  what is an error. */
 
-/*#define LOAD_ERROR(x)         assert((x, 0))
-#define ALLOC_ERROR(x)        assert((x, 0))
-#define ERROR(x)              assert((x, 0))*/
-/*#define set_symbol(x,y,z,w)   FIAL_set_symbol(x,y,z,w)*/
+/* top nodes end up in libraries, so they have to be freed immediately
+   or else they will leak.  */
+static void free_tree_top (struct FIAL_ast_node *t)
+{
+	struct FIAL_ast_node *iter, *tmp;
+	if(!t)
+		return;
+	for(iter = t->left; iter != NULL; iter = tmp) {
+		tmp = iter->right;
+		assert(iter->type == AST_TOP_NODE);
+		free(iter);
+	}
+	free(t);
+}
 
 /*note: this is not a good interface.  Good enough for a static
  * function though.  ret_lib can be NULL if you don't want the address
@@ -61,7 +67,7 @@ static inline int add_lib_from_ast(interpreter             *interp,
 				   struct FIAL_error_info  *error)
 
 {
-	union FIAL_lib_entry *lib_entry = ALLOC(sizeof(*lib_entry));
+	union FIAL_lib_entry *lib_entry = calloc(sizeof(*lib_entry), 1);
 	library *lib = NULL;
 
 	node *iter = NULL;
@@ -77,6 +83,7 @@ static inline int add_lib_from_ast(interpreter             *interp,
 		error->static_msg = "couldn't allocate for lib entry when loading";
 		return -1;
 	};
+
 	lib = &lib_entry->lib;
 
 	memset(lib, 0, sizeof(*lib));
@@ -125,6 +132,8 @@ static inline int add_lib_from_ast(interpreter             *interp,
 	strcpy(new_label, lib_label);
 	lib->label = new_label;
 
+	free_tree_top(top_node);
+
 	return 0;
 }
 
@@ -150,7 +159,6 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 	error->file = (char *)filename;
 
 	errno = 0;
-/*	printf("filename to open :%s\n", filename);*/
 	input_file = fopen(filename, "r");
 
 	if(!input_file) {
@@ -182,7 +190,8 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
  *
  * This interface has to be changed, I want reentrant/thread safe, but
  * anyhow, this is ok for now.  Just load all interpreters in the same
- * thread.
+ * thread.  Also, I want to switch to berkeley yacc, so it's just as
+ * well I haven't messed around with this too much....
  */
 	top = NULL;
 	current_interp = interp;
@@ -193,7 +202,6 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 
 	FIAL_parser_line_no = 1;
 	FIAL_parser_col_no  = 1;
-
 
 	tmp = yyparse();
 	yypop_buffer_state();
@@ -210,7 +218,14 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 		return -1;
 	}
 
-	/*FIXME: running load stuff. */
+	/* this is suboptimal, but I can live with that for the time being... */
+
+	/*
+	 * actually, when loading from C api I don't mind requiring
+	 * load to be done manually.  I will have it do it
+	 * automatically from within fial though.  Current problem is
+	 * I have no way to return errors from here.
+	 */
 
 	if(lib_ent)
 		*ret_lib = lib_ent;
@@ -236,7 +251,6 @@ int FIAL_load_lookup (struct FIAL_interpreter *interp,
 	}
 	return 1;
 }
-
 
 /* this will lookup the string label first, and if it is available, it
    will simply return the library. */

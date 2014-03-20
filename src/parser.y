@@ -128,7 +128,6 @@ ID                    '(' arglist ')'   {$$ = NODE(AST_CALL_A, $3, NULL, @$.line
 | ID ',' ID                             {node *tmp = NODE(AST_ID, NULL, NULL, @$.line, @$.col);  tmp->sym = $3;
 				         $$ = NODE(AST_CALL_B, tmp, NULL, @$.line, @$.col); $$->sym = $1;}
 
-
 /*
     This is an idea -- it was working at one time, but I don't see the
     need for it just now.  I might put it back though. It would allow

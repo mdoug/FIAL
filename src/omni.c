@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "interp.h"
+#include "api.h"
 #include "ast.h"
 #include "loader.h"
 #include "basic_types.h"
@@ -108,7 +109,6 @@ int print(int argc, struct FIAL_value **argv,
 		case VALUE_SYMBOL:
 			printf("$%s ", env->interp->symbols.symbols[ref->sym]);
 			break;
-
 		default:
 			printf("Object of type: %d\n", ref->type);
 			return 1;
@@ -119,6 +119,23 @@ int print(int argc, struct FIAL_value **argv,
 	return 0;
 }
 
+static int run_load_on_lib (struct FIAL_proc *proc,
+			    struct FIAL_interpreter *interp,
+			    struct FIAL_error_info  *error)
+{
+	int ret = 0;
+	struct FIAL_exec_env env;
+
+	FIAL_init_exec_env(&env);
+	env.interp = interp;
+
+	if ((ret = FIAL_run_proc(proc, NULL, &env)) < 0)
+		*error = env.error;
+
+	FIAL_deinit_exec_env(&env);
+	return ret;
+}
+
 int load_lib (int argc, struct FIAL_value **args,
 	      struct FIAL_exec_env *env,
 	      void *ptr)
@@ -126,6 +143,13 @@ int load_lib (int argc, struct FIAL_value **args,
 	union FIAL_lib_entry *lib_ent  = NULL;
 	int ret                         = 0;
 	struct FIAL_value val           = {0};
+
+	if(env->interp->state != FIAL_INTERP_STATE_LOAD) {
+		env->error.code = ERROR_INTERP_STATE;
+		env->error.static_msg = "Can only load libraries in load state.";
+		FIAL_set_error(env);
+		return -1;
+	}
 
 	if(argc < 2) {
 		env->error.code  = ERROR_INVALID_ARGS;
@@ -160,6 +184,7 @@ int load_lib (int argc, struct FIAL_value **args,
 			return -1;
 		}
 	}
+
 	memset(&env->error, 0, sizeof(env->error));
 	ret = FIAL_load_string(env->interp, args[1]->str, &lib_ent, &env->error);
 	if(ret < 0)
@@ -178,8 +203,16 @@ int load_lib (int argc, struct FIAL_value **args,
 
 	assert(lib_ent);
 	if( lib_ent->type == FIAL_LIB_FIAL) {
-		val.type = VALUE_LIB;
-		val.lib  = &lib_ent->lib;
+		struct FIAL_proc fp;
+
+		val.type  =  VALUE_LIB;
+		val.lib   =  &lib_ent->lib;
+		if( FIAL_set_proc_from_strings(&fp, lib_ent->lib.label, "load",
+					       env->interp) >= 0) {
+			if (run_load_on_lib(&fp,env->interp, &env->error) < 0) {
+				return -1;
+			}
+		}
 	} else {
 		assert(lib_ent->type == FIAL_LIB_C);
 		val.type   = VALUE_C_LIB;
@@ -188,10 +221,11 @@ int load_lib (int argc, struct FIAL_value **args,
 
 	assert(env->lib->libs);
 
+/* FIXME: this doesn't check if the symbol was overwritten--maybe that's ok. */
+
 /* i'm really not sure this is the right set symbol, but it's fine for
  * now, all these structures are in a state of flux, unfortubately.*/
-
-	ret=FIAL_set_symbol(env->lib->libs, args[0]->sym, &val, env);
+	FIAL_set_symbol(env->lib->libs, args[0]->sym, &val, env);
 	return ret;
 }
 
@@ -203,7 +237,7 @@ static int register_type (int argc, struct FIAL_value **args,
 	if(argc == 0) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg = "register types requires an argument in which"
-			          " to storet he new type";
+			                " to storet he new type";
 		E_SET_ERROR(*env);
 		return -1;
 	}
@@ -212,10 +246,18 @@ static int register_type (int argc, struct FIAL_value **args,
 	if(ret == -1) {
 		env->error.code = ERROR_BAD_ALLOC;
 		env->error.static_msg = "out of memory while allocating space "
-					"to register type";
-		E_SET_ERROR(*env);
+			                "to register type";
+		FIAL_set_error(env);
 		return -1;
 	}
+	if(ret == -2) {
+		env->error.code = ERROR_INTERP_STATE;
+		env->error.static_msg = "Attempt to register type when interpreter "
+			                "Was not set to load state.";
+		FIAL_set_error(env);
+		return -1;
+	}
+
 	args[0]->type = VALUE_TYPE;
 	args[0]->n    = tmp;
 	return 0;
@@ -299,7 +341,6 @@ static int map_lookup   (struct FIAL_c_function_args *args,
 }
 
 #else /*BEFORE.... AND NOW AFTER: */
-
 
 static int map_lookup   (int argc, struct FIAL_value **argv,
 			 struct FIAL_exec_env *env,
@@ -412,6 +453,15 @@ static int global_set (int argc, struct FIAL_value **args,
 
 	assert(env);
 	assert(env->lib);
+	assert(env->interp);
+
+	if(env->interp->state != FIAL_INTERP_STATE_LOAD) {
+		env->error.code = ERROR_INTERP_STATE;
+		env->error.static_msg = "Global values can only be set when "
+			"interpreter is in a load state.";
+		FIAL_set_error(env);
+		return -1;
+	}
 	if(argc < 2) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg = "arg error, global_set, requires 2 args";
@@ -452,7 +502,6 @@ static int global_set (int argc, struct FIAL_value **args,
 	}
 
 	return 0;
-
 }
 
 static int global_lookup (int argc, struct FIAL_value **args,

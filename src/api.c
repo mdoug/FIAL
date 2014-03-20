@@ -15,7 +15,6 @@
 #include "error_def_short.h"
 #include "loader.h"
 
-
 static int map_dp_wrapper (struct FIAL_value *a,
 		       struct FIAL_interpreter *b,
 		       void   *c)
@@ -30,15 +29,15 @@ static int array_dp_wrapper (struct FIAL_value *a,
 	return FIAL_destroy_array_value(a, b);
 }
 
-struct FIAL_finalizer map_fin   = {map_dp_wrapper, NULL};
-struct FIAL_finalizer array_fin = {array_dp_wrapper, NULL};
+static struct FIAL_finalizer map_fin   = {map_dp_wrapper,   NULL};
+static struct FIAL_finalizer array_fin = {array_dp_wrapper, NULL};
 
 #define INITIAL_TYPE_TABLE_SIZE 50
 #if VALUE_USER > INITIAL_TYPE_TABLE_SIZE
 #error VALUE_USER cannot be larger than INITIAL_TYPE_TABLE_SIZE
 #endif /*VALUE_MAP >= INITIAL_TYPE_TABLE_SIZE*/
 
-inline int init_types (struct FIAL_master_type_table *mtt)
+int init_types (struct FIAL_master_type_table *mtt)
 {
 	size_t size;
 
@@ -62,10 +61,120 @@ inline int init_types (struct FIAL_master_type_table *mtt)
  */
 	return 0;
 }
+int FIAL_set_interp_to_run(struct FIAL_interpreter *interp)
+{
+	if(!interp)
+		return -1;
+	interp->state = FIAL_INTERP_STATE_RUN;
+	return 0;
+}
+
+static void destroy_FIAL_lib (struct FIAL_library *lib)
+{
+	struct FIAL_symbol_map_entry *iter, *tmp;
+
+	if(!lib)
+		return;
+
+	if(lib->procs) {
+		for(iter = lib->procs->first; iter != NULL; iter = tmp) {
+			tmp = iter->next;
+			assert(iter->val.type == VALUE_NODE);
+			FIAL_destroy_ast_node(iter->val.node);
+			free(iter);
+		}
+		free(lib->procs);
+	}
+
+	/* globals always have simple destructors.... */
+	if(lib->global) {
+		for(iter = lib->global->first; iter != NULL; iter = tmp) {
+			tmp = iter->next;
+			free(iter);
+		}
+		free(lib->global);
+	}
+	/* libraries are not deleted recursively */
+	if(lib->libs) {
+		for(iter = lib->libs->first; iter != NULL; iter = tmp) {
+			tmp = iter->next;
+			free(iter);
+		}
+		free(lib->libs);
+	}
+	free(lib);
+}
+
+static void destroy_FIAL_c_lib (struct FIAL_c_lib *c_lib)
+{
+	if(!c_lib)
+		return;
+
+	struct FIAL_symbol_map_entry *iter, *tmp;
+	if(c_lib->funcs) {
+		for(iter = c_lib->funcs->first; iter != NULL; iter = tmp) {
+			tmp = iter->next;
+			free(iter);
+		}
+		free(c_lib->funcs);
+	}
+	free(c_lib);
+}
+
+static void destroy_FIAL_lib_entry (union FIAL_lib_entry *lib_ent)
+{
+	if(lib_ent->type == FIAL_LIB_FIAL) {
+		destroy_FIAL_lib(&lib_ent->lib);
+	} else {
+		assert(lib_ent->type == FIAL_LIB_C);
+		destroy_FIAL_c_lib (&lib_ent->c_lib);
+	}
+}
+
+void FIAL_deinit_interpreter (struct FIAL_interpreter *interp)
+{
+	union FIAL_lib_entry *lib_iter, *lib_tmp;
+	struct FIAL_symbol_map_entry *sym_iter, *sym_tmp;
+
+	if(!interp)
+		return;
+
+	for(lib_iter = interp->libs; lib_iter != NULL; lib_iter = lib_tmp) {
+		lib_tmp = lib_iter->stub.next;
+		destroy_FIAL_lib_entry(lib_iter);
+	}
+	if(interp->omnis) {
+		for(sym_iter = interp->omnis->first; sym_iter != NULL;
+		    sym_iter = sym_tmp) {
+			sym_tmp  = sym_iter->next;
+			free(sym_iter);
+		}
+		free(interp->omnis);
+	}
+	if(interp->constants) {
+		for(sym_iter = interp->constants->first; sym_iter != NULL;
+		    sym_iter = sym_tmp) {
+			sym_tmp  = sym_iter->next;
+			free(sym_iter);
+		}
+		free(interp->constants);
+	}
+
+	free(interp->symbols.symbols);
+	free(interp->types.finalizers);
+	return;
+}
+
+void FIAL_destroy_interpreter(struct FIAL_interpreter *interp)
+{
+	FIAL_deinit_interpreter(interp);
+	free(interp);
+}
 
 int FIAL_init_interpreter (struct FIAL_interpreter *interp)
 {
-	memset(interp, 0, sizeof(0));
+	memset(interp, 0, sizeof(*interp));
+	interp->state = FIAL_INTERP_STATE_LOAD;
 	return init_types(&interp->types);
 }
 
@@ -75,12 +184,66 @@ struct FIAL_interpreter *FIAL_create_interpreter (void)
 	if(!interp)
 		return NULL;
 	if(FIAL_init_interpreter(interp) < 0) {
-		free interp;
+		free (interp);
 		return NULL;
 	}
 	return interp;
 }
 
+static void reverse_block_stack (struct FIAL_block **bs)
+{
+	struct FIAL_block *iter, *tmp;
+	struct FIAL_block *ns;  /* new stack */
+
+	iter = *bs;
+	ns = NULL;
+
+	for(; iter != NULL; iter = tmp) {
+		tmp = iter->next;
+		iter->next=ns;
+		ns = iter;
+	}
+	*bs = ns;
+	return;
+}
+
+int FIAL_unwind_exec_env(struct FIAL_exec_env *env)
+{
+	struct FIAL_block *ns;   /* new_stack */
+	struct FIAL_block *tmp;
+
+	ns = env->block_stack;
+	reverse_block_stack (&ns);
+	for(; ns != NULL; ns = tmp) {
+		tmp = ns->next;
+		if(ns->values)
+			FIAL_destroy_symbol_map(ns->values, env->interp);
+		free(ns);
+	}
+	env->block_stack = NULL;
+	return 0;
+}
+
+void FIAL_deinit_exec_env(struct FIAL_exec_env *env)
+{
+	/*
+	 * actually, suprisingly, the exec_env does not actually seem
+	 * to hold much in the way of actual data, outside of the
+	 * block_stack.  I don't know if this is good or bad, but it
+	 * was never really intended, the idea was this wouold have a
+	 * bunch of stuff...
+         */
+
+	if(env->block_stack)
+		FIAL_unwind_exec_env (env);
+	free(env->error.dyn_msg);
+	return;
+}
+void FIAL_destroy_exec_env(struct FIAL_exec_env *env)
+{
+	FIAL_deinit_exec_env(env);
+	free(env);
+}
 int FIAL_init_exec_env(struct FIAL_exec_env *env)
 {
 	memset(env, 0, sizeof(*env));
@@ -94,12 +257,11 @@ struct FIAL_exec_env *FIAL_create_exec_env(void)
 	if(!env)
 		return NULL;
 	if(FIAL_init_exec_env(env) < 0) {
-		free env;
+		free (env);
 		return NULL;
 	}
 	return env;
 }
-
 
 static int set_arguments_on_node (struct FIAL_ast_node *node,
 				  struct FIAL_value *args,
@@ -143,7 +305,6 @@ static int set_arguments_on_node (struct FIAL_ast_node *node,
 	return 0;
 }
 
-
 static int set_arguments_for_func (int *argc_ptr, struct FIAL_value ***argv_ptr,
 				   struct FIAL_value *args)
 {
@@ -180,7 +341,6 @@ static int set_arguments_for_func (int *argc_ptr, struct FIAL_value ***argv_ptr,
 	return 0;
 }
 
-
 int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
 			       const char *lib_label,
 			       const char *proc_name,
@@ -195,8 +355,9 @@ int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
 	memset(proc, 0, sizeof(*proc));
 
 	proc->interp = interp;
-	if(!FIAL_load_lookup(interp, lib_label, &lib))
+	if(FIAL_load_lookup(interp, lib_label, &lib))
 		return -1;
+	proc->lib = lib;
 	if(lib->type == FIAL_LIB_FIAL) {
 		proc->type = FIAL_PROC_FIAL;
 		map = lib->lib.procs;
@@ -219,7 +380,6 @@ int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
 		return -1;
 	}
 }
-
 
 /*
  * this takes the library's label, and a string representation of its
@@ -258,6 +418,8 @@ int FIAL_run_strings (const char *lib_label,
 		return -4;
 	return FIAL_run_ast_node (val.node, args, env);
 }
+
+/* I should change this to just have an error input for the return.*/
 
 int FIAL_run_proc(struct FIAL_proc *proc,
 		  struct FIAL_value *args,

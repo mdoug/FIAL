@@ -12,12 +12,11 @@
 
 struct FIAL_ast_node *FIAL_create_ast_node(void)
 {
-	struct FIAL_ast_node *ret = ALLOC(sizeof(*ret));
+	struct FIAL_ast_node *ret = calloc(sizeof(*ret), 1);
 	if(!ret) {
 		ALLOC_ERROR("couldn't allocate node!");
 		return NULL;
 	}
-	memset(ret, 0, sizeof(*ret));
 	return ret;
 }
 
@@ -28,7 +27,7 @@ struct FIAL_ast_node *FIAL_get_ast_node(int type,
 	struct FIAL_ast_node *ret = FIAL_create_ast_node();
 	if(!ret)
 		return NULL;
-	memset(ret, 0, sizeof(*ret));
+
 	ret->type = type;
 	ret->left = left;
 	ret->right = right;
@@ -51,8 +50,29 @@ FIAL_get_ast_node_with_loc (int type, struct FIAL_ast_node *left,
 
 int FIAL_destroy_ast_node(struct FIAL_ast_node *n)
 {
-	FIAL_destroy_ast_node(n->left);
-	FIAL_destroy_ast_node(n->right);
+	if(!n)
+		return 0;
+
+	/* ok, I am just going to manual account for what to delete
+	from different nodes. default will be to delete both left and
+	right, as that is the typical case. */
+
+	switch(n->type) {
+	case AST_TOP:
+		FIAL_destroy_ast_node(n->left);
+		break;
+	case AST_ARGLIST:
+		FIAL_destroy_ast_node(n->right);
+		break;
+	case AST_STMTS:
+		FIAL_destroy_ast_node(n->left);
+		break;
+	default:
+		FIAL_destroy_ast_node(n->left);
+		FIAL_destroy_ast_node(n->right);
+		break;
+	}
+
 
 	if(n->type == AST_STRING)
 	    STRING_FREE(n->str);

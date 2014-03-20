@@ -86,9 +86,9 @@ struct FIAL_library {
 	char                    *label;
 	union FIAL_lib_entry     *next;
 
-	struct FIAL_symbol_map * procs;
-	struct FIAL_symbol_map *global;
-	struct FIAL_symbol_map   *libs;
+	struct FIAL_symbol_map   *  procs;
+	struct FIAL_symbol_map   * global;
+	struct FIAL_symbol_map   *   libs;
 };
 
 struct FIAL_c_lib {
@@ -210,11 +210,10 @@ struct FIAL_master_type_table {
 struct FIAL_interpreter {
 	int                                    state;
 	union  FIAL_lib_entry                  *libs;
+	struct FIAL_symbol_map            *constants;
 	struct FIAL_symbol_map                *omnis;
-	struct FIAL_symbol_map            *constants;   /* this is unnecessary, can be defined using c api */
 	struct FIAL_master_symbol_table      symbols;
 	struct FIAL_master_type_table          types;
 };
-
 
 #endif /* FIAL_INTERP_H */

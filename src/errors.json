@@ -19,6 +19,7 @@
 	,"VARIABLE_REDECLARED"
 	,"INVALID_EXPRESSION"
 	,"INVALID_ARGS"
+	,"INTERP_STATE"
     ],
 
     "other"   :

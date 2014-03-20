@@ -87,6 +87,20 @@ int test_print_args (struct FIAL_interpreter *interp)
 	return FIAL_run_ast_node(val.node, args, &env);
 }
 
+void print_error (struct FIAL_error_info *err)
+{
+	printf("Error loading initial file %s on line %d, col %d:\n %s.\n" ,
+	       err->file, err->line, err->col,
+	       err->static_msg);
+	if(err->dyn_msg)
+		printf("%s.\n", err->dyn_msg);
+}
+
+
+/* this should be rewritten to use the new api, this is just a
+   hodgepodge of stuff, most of which is no longer intended for top
+   level use. */
+
 int main(int argc, char *argv[])
 {
 	struct FIAL_interpreter *interp = FIAL_create_interpreter();
@@ -97,6 +111,7 @@ int main(int argc, char *argv[])
 	FIAL_symbol             sym;
 	int                     ret;
 	struct FIAL_error_info  err;
+	struct FIAL_proc         fp;
 
 	char              *filename;
 	char             *proc_name;
@@ -112,8 +127,9 @@ int main(int argc, char *argv[])
 	    proc_name = "run";
 
 	memset(&val, 0, sizeof(val));
-	memset(&env, 0, sizeof(env));
 	memset(&err, 0, sizeof(err));
+
+	FIAL_init_exec_env(&env);
 
 	FIAL_install_constants(interp);
 	FIAL_install_std_omnis(interp);
@@ -122,13 +138,22 @@ int main(int argc, char *argv[])
 
 	ret = FIAL_load_string  (interp, filename, &lib_ent, &err );
 	if(ret == -1) {
-		printf("Error loading initial file %s on line %d, col %d:\n %s.\n" ,
-		       err.file, err.line, err.col,
-			err.static_msg);
-		if(err.dyn_msg)
-		    printf("%s.\n", err.dyn_msg);
+		print_error(&err);
 		return -1; /* no need to free, we're done....*/
 	}
+
+/* run load function */
+	if (FIAL_set_proc_from_strings(&fp, filename, "load", interp) >= 0) {
+		if((ret = FIAL_run_proc(&fp, NULL, &env)) < 0) {
+			printf("error in load function.\n");
+			print_error(&env.error);
+			return 1;
+		}
+	}
+	FIAL_deinit_exec_env(&env);
+	FIAL_init_exec_env(&env);
+
+	FIAL_set_interp_to_run(interp);
 
 	lib = &lib_ent->lib;
 	FIAL_get_symbol   (&sym,  proc_name, interp );
@@ -147,8 +172,6 @@ int main(int argc, char *argv[])
 	    print_tree_loc(iter->val.proc);
 	}
 	*/
-
-//	test_print_args(interp);
 
 	env.interp = interp;
 	env.lib    = lib;
@@ -170,6 +193,8 @@ int main(int argc, char *argv[])
 		       env.error.file, env.error.line, env.error.col,
 			env.error.static_msg);
 
+	FIAL_deinit_exec_env(&env);
+	FIAL_destroy_interpreter(interp);
 
 	return ret;
 }

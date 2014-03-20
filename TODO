@@ -11,6 +11,8 @@ from the sacrifices made.
 
 FIXME:
 
+-- remove constants from interpreter, replace with a library.
+
 -- array does not currently use errors correctly.  I shoudl remove
    array, or fix it to be somewhat sane.  setting value (10000)
    currently allocates a bunch of space for it, I think this behavior
@@ -18,11 +20,31 @@ FIXME:
 
 ------------
 
+TODO:
+
+(*) work on the big bundle of projects below.
+(*) copy procs.
+
 ------------------------------
 
 There follows a somewhat lenghty discussion, but the immediate object
 is establishing load states / run states, and making the necessary
 changes to the loaders, the global omni, the load function.
+
+D (*) ability to set interpreter to "run"
+D (*) autorun "load" functions in load mode.  Note, this is not done
+      from the C api, only from FIAL.  Not sure that is how this is
+      always going to work, but more control from C is not necessarily
+      a bad thing.
+
+(*) Make needed changes to things :
+D   (*) FIAL_get_symbol(interp*) should not add symbol if interpreter is
+    	set to run and symbol isn't found.
+D   (*) load should only work in load state.
+D   (*) register types only works in load state.
+D   (*) global set should only work in load mode
+    (*) going to have to double check this stuff also, not sure I know
+        off the top of my head what everything does to an interpreter.
 
 --------------------
 
@@ -43,11 +65,12 @@ Ok, there are a number of related steps here --
 
     I need basically two states: "loading" and "running".  Then I
     probably want to fix up my load routines, so that they
-    automatically call the "load" method of FIAL structures.  Then, I
-    want to make it so "globals" can only be set during a load.  Also,
-    adding symbols in run state should go into an auxiliary symbol
-    table on the environment.  Interpreters should start in load state
-    when made via functions.
+    automatically call the "load" method of FIAL structures.
+
+    Then, I want to make it so "globals" can only be set during a
+    load.  Also, adding symbols in run state should go into an
+    auxiliary symbol table on the environment.  Interpreters should
+    start in load state when made via functions.
 
     At some point I want to create a function that returns FILE *'s
     from the strings in load calls.  But, that is not needed yet, nor

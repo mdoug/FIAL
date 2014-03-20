@@ -60,13 +60,39 @@ void FIAL_set_error(struct FIAL_exec_env *env)
 
 /* returns -1 on bad alloc.*/
 
+int FIAL_find_symbol(FIAL_symbol *sym,
+		     const char *text,
+		     struct FIAL_interpreter *interp)
+{
+	int i;
+	struct FIAL_master_symbol_table *st = &(interp->symbols);
+
+	*sym = 0;
+	if(!interp)
+		return 1;
+	if(!text)
+		return 1;
+
+	for(i = 1; i < st->size; i++) {
+		/*array should not contain null pointers*/
+		assert(st->symbols[i]);
+		if(strncmp(st->symbols[i], text, SYMBOL_LENGTH) == 0) {
+			*sym = i;
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int FIAL_get_symbol(FIAL_symbol *sym,
 		    const char *text,
 		    struct FIAL_interpreter *interp)
 {
-	int i;
 	char *new_sym;
 	struct FIAL_master_symbol_table *st = &(interp->symbols);
+
+	if(interp->state == FIAL_INTERP_STATE_RUN)
+		return FIAL_find_symbol(sym, text, interp);
 
 	if(st->symbols == NULL) {
 		st->symbols =
@@ -92,16 +118,9 @@ int FIAL_get_symbol(FIAL_symbol *sym,
 
 	}
 	assert(st->symbols);
-	for(i = 1; i < st->size; i++) {
-		/*array should not contain null pointers*/
-		assert(st->symbols[i]);
-		if(strncmp(st->symbols[i], text, SYMBOL_LENGTH) == 0) {
-			*sym = i;
-			return 0;
-		}
+	if(FIAL_find_symbol(sym, text, interp) == 0) {
+		return 0;
 	}
-
-	assert(i == st->size);
 	*sym = st->size;
 	new_sym = FIAL_ALLOC(SYMBOL_LENGTH + 1);
 	strncpy(new_sym, text, SYMBOL_LENGTH);
@@ -812,8 +831,10 @@ static inline int interp_call_on_func (struct FIAL_c_func     *func,
 static inline int execute_call_A (node *stmt, exec_env *env)
 {
 	value this_proc;
+	int res;
 
-	int res = lookup_symbol(&this_proc, env->lib->procs, stmt->sym);
+	assert(env->lib);
+	res = FIAL_lookup_symbol(&this_proc, env->lib->procs, stmt->sym);
 	if(res == 1) {
 
 		env->error.code = ERROR_UNKNOWN_PROC;

@@ -286,6 +286,7 @@ int FIAL_array_get_index (struct FIAL_value *val, struct FIAL_array *array,
 /* returns:
 
 -1 on bad alloc.
+-2 if interp is not set to "load";
 
 */
 
@@ -294,6 +295,9 @@ int FIAL_register_type(int *new_type,
 		       struct FIAL_interpreter *interp)
 {
 	assert(interp->types.size <= interp->types.cap);
+
+	if(interp->state != FIAL_INTERP_STATE_LOAD)
+		return -2;
 
 	if(interp->types.size == interp->types.cap) {
 		struct FIAL_finalizer *tmp = NULL;
