@@ -8,6 +8,7 @@
 #include <dirent.h>
 
 #include "interp.h"
+#include "api.h"
 #include "basic_types.h"
 #include "value_def_short.h"
 #include "ast.h"
@@ -43,11 +44,11 @@ static int get_filenames (struct FIAL_array *ar,  char *dir_name,
 		struct FIAL_text_buf *tb = FIAL_create_text_buf();
 
 		if(!tb) {
-			
+
 			/* should I clean this up, or just return the
 			 * partial?  I'm just returning the partial
 			 * now. */
-			   
+
 			return -1;
 		}
 
@@ -59,7 +60,7 @@ static int get_filenames (struct FIAL_array *ar,  char *dir_name,
 		if(stat(dp->d_name, &s) || S_ISDIR(s.st_mode))
 			continue;
 
-		if(FIAL_text_buf_append_str(tb, dp->d_name)<0) { 
+		if(FIAL_text_buf_append_str(tb, dp->d_name)<0) {
 			FIAL_destroy_text_buf(tb);
 			return -2;
 		}
@@ -181,7 +182,7 @@ static int check_if_dir (char *path)
 		return 0;
 	if(S_ISDIR(st.st_mode))
 		return 1;
-	else 
+	else
 		return 0;
 }
 

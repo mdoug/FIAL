@@ -20,6 +20,7 @@
 	,"INVALID_EXPRESSION"
 	,"INVALID_ARGS"
 	,"INTERP_STATE"
+	,"CONTAINER_ACCESS"
     ],
 
     "other"   :

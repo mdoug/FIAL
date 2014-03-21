@@ -61,7 +61,7 @@ DIGIT [0-9]
 		        long tmp = strtol(yytext, NULL, 10);
 			if(tmp == LONG_MAX || tmp == LONG_MIN) {
 			       if (errno == ERANGE) {
-			       	  PARSE_WARNING("parsed value out of range!");
+PARSE_WARNING("parsed value out of range!");
 			       }
 			} else if(tmp > INT_MAX || tmp < INT_MIN) {
 			       PARSE_WARNING("parsed value out of range!");

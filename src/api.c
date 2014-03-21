@@ -366,9 +366,9 @@ int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
 		proc->type = FIAL_PROC_C;
 		map = lib->c_lib.funcs;
 	}
+	FIAL_get_symbol(&sym, proc_name, interp);
 	if(!sym)
 		return -3;
-
 	FIAL_get_symbol(&sym, proc_name, interp);
 	FIAL_lookup_symbol(&val, map, sym);
 	if((proc->type == FIAL_PROC_FIAL && val.type == VALUE_NODE) ||
@@ -480,3 +480,35 @@ int FIAL_run_ast_node (struct FIAL_ast_node  *proc,
 	ret =  FIAL_interpret(env);
 	return ret;
  }
+
+/*
+ *  value functions, actually, these functions should be void, they never fial....
+ */
+
+void FIAL_clear_value(struct FIAL_value *val,
+		      struct FIAL_interpreter *interp)
+{
+	struct FIAL_finalizer *finisher;
+	assert(val->type < interp->types.size);
+	finisher = interp->types.finalizers + val->type;
+	if(finisher->func) {
+		finisher->func(val, interp, finisher->ptr);
+	}
+	memset(val, 0, sizeof(*val));
+}
+
+void FIAL_move_value (struct FIAL_value *to,
+		      struct FIAL_value *from,
+		      struct FIAL_interpreter *interp)
+{
+	if(to == from) {
+		memset(from, 0, sizeof(*from));
+		return;
+	}
+	assert(to != from);
+	FIAL_clear_value(to, interp);
+	*to = *from;
+	memset(from, 0, sizeof(*from));
+}
+
+/* incoming, FIAL_copy_value */

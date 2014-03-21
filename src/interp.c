@@ -129,24 +129,6 @@ int FIAL_get_symbol(FIAL_symbol *sym,
 	return 1;
 }
 
-/* this is obsolete now, instead I have a FIAL_finish_value -- this is
-   maybe better though, but for now it isn't right */
-
-int FIAL_clear_value(struct FIAL_value *val,
-		     struct FIAL_interpreter *interp)
-{
-	struct FIAL_finalizer *finisher;
-	int ret = 0;
-	assert(val->type < interp->types.size);
-	finisher = interp->types.finalizers + val->type;
-	if(finisher->func) {
-		finisher->func(val, interp, finisher->ptr);
-	}
-	memset(val, 0, sizeof(*val));
-	return ret;
-}
-
-
 /*
  *  Would be better to handle this without copying.  But for now I am
  *  just going to do everything with my little symbol map structure,

@@ -3,9 +3,9 @@ TODO
 I have found my way into a certain ennui when dealing with this stuff,
 but I am almost to a good place with it, so I just have to keep
 moving.  Once concurrency kicks in, (a) everything will be harder, but
-(b) everything will be a lot more obviously useful.  As it is, you are
-programming with one hand tied behind your back, with no real gains
-from the sacrifices made.
+(b) everything will be a lot more obviously useful.  As stands now,
+you are programming with one hand tied behind your back, with no real
+gains from the sacrifices made.
 
 ------------
 
@@ -22,12 +22,13 @@ FIXME:
 
 TODO:
 
-(*) work on the big bundle of projects below.
-(*) copy procs.
+(*) copy procs.  <-- not too tough I don't think.
+(*) logical operators -- and, or, not.
+(*) write up some documentation.
 
 ------------------------------
 
-There follows a somewhat lenghty discussion, but the immediate object
+There follows a somewhat lengthy discussion, but the immediate object
 is establishing load states / run states, and making the necessary
 changes to the loaders, the global omni, the load function.
 
@@ -119,8 +120,10 @@ init/create functions which set the appropriate values.
 Improved standard data structures:
 
 (*) I am going to have to add a table of copy procs as well,
-    otherwise, containers won't be able to copy anything.  This will
-    clean up container usage considerably.
+    otherwise, containers won't be able to copy anything.  This means
+    containers cannot provide a mechanism to copy themselves.  This
+    will also clean up container usage considerably, as taking an
+    element out, copying it, and putting it back in is cumbersome.
 
 (*) figure out what I am doing with arrays/stacks/fifos/deques etc,
     and implement it.  Stacks I think are the preferred way, but fifos
@@ -129,17 +132,6 @@ Improved standard data structures:
     even better.
 
 ---------
-
-Ok, i have an idea for this -- sequences.  They will have 3 primary
-functions: in (puts something in), first (takes the first element that
-was placed into the sequence), and last (takes the last element that
-was placed into the sequence.)  There will also be an access
-functions, which allow the sequence to be used as an array.
-
-The implementation will not be terribly hard I don't think.  Another
-idea is the ability to reverse them, so that in goes in the other
-side, and first and last are switched.  But I will worry about that
-later, it shouldn't be too hard though.
 
 ----------------------------------------
 

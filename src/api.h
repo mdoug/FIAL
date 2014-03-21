@@ -54,4 +54,13 @@ int FIAL_run_ast_node (struct FIAL_ast_node  *proc,
 		       struct FIAL_value     *args,
 		       struct FIAL_exec_env  *env);
 
+/* dealing with values */
+
+void FIAL_clear_value(struct FIAL_value *val,
+		      struct FIAL_interpreter *interp);
+
+void FIAL_move_value (struct FIAL_value *to,
+		      struct FIAL_value *from,
+		      struct FIAL_interpreter *interp);
+
 #endif /*FIAL_API_H*/

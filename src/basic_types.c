@@ -3,6 +3,8 @@
 
 #include "basic_types.h"
 #include "interp.h"
+#include "api.h"  /* this is just for clear_value, maybe some
+		   * refactoring is in order. */
 
 #include "value_def_short.h"
 

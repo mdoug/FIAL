@@ -18,6 +18,7 @@
 	,"MAP"
 	,"ARRAY"
 	,"TEXT_BUF"
+	,"SEQ"
 
 	,"NODE"
 	,"C_FUNC"

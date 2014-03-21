@@ -58,11 +58,6 @@ int FIAL_array_set_index (struct FIAL_array *array, size_t index,
 int FIAL_array_get_index (struct FIAL_value *val, struct FIAL_array *array,
 			  size_t index, struct FIAL_interpreter *interp);
 
-/*
-int FIAL_array_push(struct FIAL_array *array, struct FIAL_value *val,
-		    struct FIAL_interpreter *interp);
-		    int FIAL_array_pop (struct FIAL_value *val, struct FIAL_array *array);*/
-
 int FIAL_register_type(int *new_type,
 		       struct FIAL_finalizer *fin,
 		       struct FIAL_interpreter *interp);
@@ -106,6 +101,7 @@ struct FIAL_value {
 		struct FIAL_library     *lib;
 		struct FIAL_c_lib     *c_lib;
 		struct FIAL_text_buf   *text;
+		struct FIAL_seq         *seq;
 		char *str;
 		void *ptr;
 	};
@@ -121,6 +117,16 @@ struct FIAL_symbol_map {
 	struct FIAL_symbol_map_entry *first;
 };
 
+struct FIAL_seq {
+	int size;
+	struct FIAL_value *seq;
+	struct FIAL_value *first;
+	struct FIAL_value *head;
+};
+
+/* FIAL_arrays are deprecated, I have some code that uses them,
+   however. */
+
 struct FIAL_array {
 	struct FIAL_value *array;
 	size_t  size;
@@ -131,12 +137,6 @@ struct FIAL_text_buf {
 	char *buf;
 	int len;
 	int cap;
-};
-
-struct FIAL_stack {
-	int size;
-	int cap;
-	struct FIAL_value *buf;
 };
 
 #endif /*FIAL_BASIC_TYPES_H*/

@@ -48,8 +48,6 @@ struct FIAL_ast_node;
 int FIAL_get_symbol(FIAL_symbol *,
 		    const char *text,
 		    struct FIAL_interpreter *);
-int FIAL_clear_value(struct FIAL_value *val,
-		     struct FIAL_interpreter *interp);
 int FIAL_interpret (struct FIAL_exec_env *env);
 int FIAL_finish_value (struct FIAL_value       *val,
 		       struct FIAL_finalizer   *fin,

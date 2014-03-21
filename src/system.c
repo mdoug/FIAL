@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include "interp.h"
+#include "api.h"
 #include "basic_types.h"
 #include "value_def_short.h"
 #include "ast.h"

@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "interp.h"
+#include "api.h"  /* needed for FIAL_clear_value */
 #include "ast.h"  /*needed for errors.....*/
 #include "error_def_short.h"
 #include "error_macros.h"
@@ -21,7 +22,7 @@
    buggy, I will just initialize to zero and be done with it until I
    really want to figure this out better. */
 
-struct FIAL_text_buf  *FIAL_create_text_buf ()
+struct FIAL_text_buf  *FIAL_create_text_buf (void)
 {
 	struct FIAL_text_buf *buf = malloc(sizeof(*buf));
 	if(!buf)
@@ -137,7 +138,7 @@ static int text_buf_create (int argc, struct FIAL_value **argv,
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg = "Argument to put new text buffer in "
 			"required.";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 
@@ -147,7 +148,7 @@ static int text_buf_create (int argc, struct FIAL_value **argv,
 	if(!buffy) {
 		env->error.code = ERROR_BAD_ALLOC;
 		env->error.static_msg = "unable to allocate text buffer.";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 
@@ -155,7 +156,6 @@ static int text_buf_create (int argc, struct FIAL_value **argv,
 	argv[0]->text = buffy;
 
 	return 0;
-
 }
 
 static int text_buf_append(int argc, struct FIAL_value **argv,
@@ -236,16 +236,17 @@ static int text_buf_finalize (struct FIAL_value *val,
 	return 0;
 }
 
-static struct FIAL_c_func_def lib_text_buf[] =
-{
-	{"create"  , text_buf_create , NULL},
-	{"append"  , text_buf_append , NULL},
-	{"compare" , text_buf_compare, NULL},
-	{NULL, NULL, NULL}
-};
 
 int FIAL_install_text_buf (struct FIAL_interpreter *interp)
 {
+	struct FIAL_c_func_def lib_text_buf[] =
+		{
+			{"create"  , text_buf_create , NULL},
+			{"append"  , text_buf_append , NULL},
+			{"compare" , text_buf_compare, NULL},
+			{NULL, NULL, NULL}
+		};
+
 	struct FIAL_finalizer fin = {text_buf_finalize, NULL};
 
 	if( FIAL_load_c_lib (interp, "text_buf", lib_text_buf, NULL) < 0)
