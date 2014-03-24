@@ -13,16 +13,10 @@ FIXME:
 
 -- remove constants from interpreter, replace with a library.
 
--- array does not currently use errors correctly.  I shoudl remove
-   array, or fix it to be somewhat sane.  setting value (10000)
-   currently allocates a bunch of space for it, I think this behavior
-   is a little too accident prone for a scripting language.
-
 ------------
 
 TODO:
 
-(*) copy procs.  <-- not too tough I don't think.
 (*) logical operators -- and, or, not.
 (*) write up some documentation.
 

@@ -236,6 +236,23 @@ static int text_buf_finalize (struct FIAL_value *val,
 	return 0;
 }
 
+static int text_buf_copier (struct FIAL_value *to,
+			    struct FIAL_value *from,
+			    struct FIAL_interpreter *interp,
+			    void *ptr)
+{
+	assert(from);
+	assert(from->type == VALUE_TEXT_BUF);
+	if(to == from)
+		return 0;
+	FIAL_clear_value(to, interp);
+
+	to->type = VALUE_TEXT_BUF;
+	to->text  = FIAL_create_text_buf();
+	if(!to->text)
+		return -1;
+	return FIAL_text_buf_append_text_buf(to->text, from->text);
+}
 
 int FIAL_install_text_buf (struct FIAL_interpreter *interp)
 {
@@ -248,9 +265,13 @@ int FIAL_install_text_buf (struct FIAL_interpreter *interp)
 		};
 
 	struct FIAL_finalizer fin = {text_buf_finalize, NULL};
+	struct FIAL_copier    cpy = {text_buf_copier,   NULL};
 
 	if( FIAL_load_c_lib (interp, "text_buf", lib_text_buf, NULL) < 0)
 		return -1;
+
 	interp->types.finalizers[VALUE_TEXT_BUF] = fin;
+	interp->types.copiers[VALUE_TEXT_BUF] = cpy;
+
 	return 0;
 }

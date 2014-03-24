@@ -136,7 +136,7 @@ static int run_load_on_lib (struct FIAL_proc *proc,
 	return ret;
 }
 
-int load_lib (int argc, struct FIAL_value **args,
+static int load_lib (int argc, struct FIAL_value **args,
 	      struct FIAL_exec_env *env,
 	      void *ptr)
 {
@@ -229,6 +229,42 @@ int load_lib (int argc, struct FIAL_value **args,
 	return ret;
 }
 
+static int move_value (int argc, struct FIAL_value **argv,
+		       struct FIAL_exec_env *env,
+		       void *ptr)
+{
+	if(argc < 2) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg = "Moving requires 2 values, to and from";
+		FIAL_set_error(env);
+		return -1;
+	}
+	FIAL_move_value(argv[0], argv[1], env->interp);
+	return 0;
+}
+
+static int copy_value (int argc, struct FIAL_value **argv,
+		       struct FIAL_exec_env *env,
+		       void *ptr)
+{
+	if(argc < 2) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg = "Copying requires 2 values, to and from";
+		FIAL_set_error(env);
+		return -1;
+	}
+
+	if(FIAL_copy_value(argv[0], argv[1], env->interp) < 0) {
+		env->error.code = ERROR_BAD_ALLOC;
+		env->error.static_msg = "Could not perform copy.";
+		FIAL_set_error(env);
+		return -1;
+	}
+
+	return 0;
+}
+
+
 static int register_type (int argc, struct FIAL_value **args,
 			  struct FIAL_exec_env *env,
 			  void *ptr)
@@ -238,11 +274,11 @@ static int register_type (int argc, struct FIAL_value **args,
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg = "register types requires an argument in which"
 			                " to storet he new type";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 
-	ret =  FIAL_register_type(&tmp, NULL, env->interp);
+	ret =  FIAL_register_type(&tmp, NULL, NULL, env->interp);
 	if(ret == -1) {
 		env->error.code = ERROR_BAD_ALLOC;
 		env->error.static_msg = "out of memory while allocating space "
@@ -265,7 +301,7 @@ static int register_type (int argc, struct FIAL_value **args,
 
 /* signals argument error if not enough errors are passed. */
 
-int get_type_of (int argc, struct FIAL_value **args,
+static int get_type_of (int argc, struct FIAL_value **args,
 		 struct FIAL_exec_env *env,
 		 void *ptr)
 {
@@ -293,7 +329,7 @@ static int map_create   (int argc, struct FIAL_value **args,
 	if(argc < 1) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg = "Argument to put new map in";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 	assert(args);
@@ -303,89 +339,88 @@ static int map_create   (int argc, struct FIAL_value **args,
 	if(!args[0]->map) {
 		env->error.code = ERROR_BAD_ALLOC;
 		env->error.static_msg = "Couldn't allocate map";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 	return 0;
 }
-
-#ifdef BEFORE
-
-static int map_lookup   (struct FIAL_c_function_args *args,
-			 struct FIAL_exec_env *env,
-			 void *ptr)
-{
-	assert(args);
-	if(args->size < 3) {
-		ERROR("not enough args");
-		return -1;
-	}
-	assert(args->args);
-	assert(args->args[0].type == VALUE_REF &&
-	       args->args[1].type == VALUE_REF &&
-	       args->args[2].type == VALUE_REF);
-
-	if(args->args[1].ref->type != VALUE_MAP) {
-		ERROR("arg2 must be a MAP.");
-		return -1;
-	}
-	if(args->args[2].ref->type != VALUE_SYMBOL) {
-		ERROR("arg3 must be a symbol.");
-		return -1;
-	}
-	FIAL_clear_value(args->args[0].ref, env->interp);
-
-	return FIAL_map_lookup_and_clear(args[0], args[1]-map, args[2]->sym,
-					 env->interp);
-
-}
-
-#else /*BEFORE.... AND NOW AFTER: */
 
 static int map_lookup   (int argc, struct FIAL_value **argv,
 			 struct FIAL_exec_env *env,
 			 void *ptr)
 {
 	int tmp;
+	struct FIAL_value val;
+
+	memset(&val, 0, sizeof(val));
 
 	if(argc < 3) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg =  "not enough args to lookup";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 	assert(argv);
 	if(argv[1]->type != VALUE_MAP) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg =  "arg2 must be a MAP.";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 	if(argv[2]->type != VALUE_SYMBOL) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg =  "arg3 must be a symbol.";
-		E_SET_ERROR(*env);
+		FIAL_set_error(env);
 		return -1;
 	}
 	FIAL_clear_value(argv[0], env->interp);
-
 	tmp =  FIAL_map_lookup_and_clear(argv[0], argv[1]->map, argv[2]->sym,
 					 env->interp);
-	assert(tmp >= 0);
-	(void)(tmp);  /* turn off compiler warning for tmp not being
-		       * used. if NDEBUG is set.  */
+
 	return 0;
 }
 
-/*
-verdict -- it's a lot better.  I mean.. a lot.  maybe not perfect, but
-still, pretty damn good.
+static int map_dupe   (int argc, struct FIAL_value **argv,
+		       struct FIAL_exec_env *env,
+		       void *ptr)
+{
+	int tmp;
+	struct FIAL_value val;
 
-Adding in real error correcting, with the args->args.ref->dafuq stuff
-would be even more of a pain that it is like this.
-*/
+	memset(&val, 0, sizeof(val));
 
-#endif /*BEFORE ... AFTER*/
+	if(argc < 3) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =  "not enough args to lookup";
+		FIAL_set_error(env);
+		return -1;
+	}
+	assert(argv);
+	if(argv[1]->type != VALUE_MAP) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =  "arg2 must be a MAP.";
+		FIAL_set_error(env);
+		return -1;
+	}
+	if(argv[2]->type != VALUE_SYMBOL) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =  "arg3 must be a symbol.";
+		FIAL_set_error(env);
+		return -1;
+	}
+	FIAL_clear_value(argv[0], env->interp);
+	tmp =  FIAL_lookup_symbol(&val, argv[1]->map, argv[2]->sym);
+
+	if(tmp == 0) {
+		if (FIAL_copy_value(argv[0], &val, env->interp) < 0) {
+			env->error.code = ERROR_BAD_ALLOC;
+			env->error.static_msg = "couldn't dupe value from map.";
+			FIAL_set_error(env);
+			return -1;
+		}
+	}
+	return 0;
+}
 
 static int map_set   (int argc, struct FIAL_value *argv[],
 		      struct FIAL_exec_env *env,
@@ -535,6 +570,8 @@ static int global_lookup (int argc, struct FIAL_value **args,
 
 }
 
+#ifdef KEEP_ARRAYS
+
 static int array_create (int argc, struct FIAL_value **args,
 			 struct FIAL_exec_env *env,
 			 void *ptr)
@@ -589,7 +626,6 @@ static int array_size (int argc, struct FIAL_value **args,
 	return 0;
 
 }
-
 
 static int array_get (int argc, struct FIAL_value **args,
 		      struct FIAL_exec_env *env,
@@ -661,12 +697,13 @@ static int array_set (int argc, struct FIAL_value **args,
 	}
 	return 0;
 }
+#endif /* KEEP_ARRAYS */
 
-
-
-struct FIAL_c_func_def my_lib[] = {
+struct FIAL_c_func_def omni_lib[] = {
 	{"print"    , print    ,      NULL},
 	{"load"     , load_lib ,      NULL},
+	{"move"     , move_value,     NULL},
+	{"copy"     , copy_value,     NULL},
 	{"register" , register_type , NULL},
 	{"type_of"  , get_type_of ,   NULL},
 	{"const"    , get_constant,   NULL},
@@ -674,12 +711,13 @@ struct FIAL_c_func_def my_lib[] = {
 };
 
 struct FIAL_c_func_def map_lib[] = {
-	{"lookup", map_lookup  ,   NULL},
-	{"set"   , map_set     ,   NULL},
+	{"take"  , map_lookup  ,   NULL},
+	{"put"   , map_set     ,   NULL},
 	{"create", map_create  ,   NULL},
+	{"dupe"  , map_dupe    ,   NULL},
 	{NULL    , NULL        ,   NULL}
 };
-
+#ifdef KEEP_ARRAYS
 struct FIAL_c_func_def array_lib[] = {
 	{"create", array_create ,   NULL},
 	{"set"   , array_set    ,   NULL},
@@ -687,6 +725,7 @@ struct FIAL_c_func_def array_lib[] = {
 	{"size"  , array_size   ,   NULL},
 	{NULL    , NULL         ,   NULL}
 };
+#endif /* KEEP_ARRAYS */
 
 struct FIAL_c_func_def global_lib[] = {
 	{"set"   , global_set    ,   NULL},
@@ -696,15 +735,15 @@ struct FIAL_c_func_def global_lib[] = {
 
 int FIAL_install_std_omnis (struct FIAL_interpreter *interp)
 {
+	struct FIAL_c_lib *omni_c_lib = NULL;
 	struct FIAL_c_lib *lib = NULL;
-	struct FIAL_c_lib *my_c_lib = NULL;
 	struct FIAL_c_lib *map_l_lib = NULL;
 	FIAL_symbol sym;
 
-	FIAL_load_c_lib(interp, "std_procs", my_lib, &my_c_lib);
+	FIAL_load_c_lib(interp, "std_procs", omni_lib  , &omni_c_lib);
 	FIAL_get_symbol(&sym,   "omni"     , interp);
 	assert(sym);
-	FIAL_add_omni_lib(interp, sym, my_c_lib);
+	FIAL_add_omni_lib(interp, sym, omni_c_lib);
 
 	FIAL_load_c_lib(interp, "map", map_lib, &map_l_lib);
 	FIAL_get_symbol(&sym,   "map"     , interp);
@@ -717,11 +756,13 @@ int FIAL_install_std_omnis (struct FIAL_interpreter *interp)
 	assert(sym);
 	FIAL_add_omni_lib(interp, sym, lib);
 
+#ifdef KEEP_ARRAYS
 	sym = 0;
 	FIAL_load_c_lib(interp, "array", array_lib, &lib);
 	FIAL_get_symbol(&sym,   "array", interp);
 	assert(sym);
 	FIAL_add_omni_lib(interp, sym, lib);
+#endif /* KEEP_ARRAYS */
 
 	return 0;
 }

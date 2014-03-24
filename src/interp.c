@@ -49,7 +49,6 @@ void FIAL_set_error(struct FIAL_exec_env *env)
 	E_SET_ERROR(*env);
 }
 
-
 /*symbols will all be the same length, and SYMBOL_LENGTH + 1 will
  * always be allocated, with symbol[SYMBOL_LENGTH] \0 */
 
@@ -315,6 +314,15 @@ static inline int eval_bi_op (char op,value *val, value *left, value *right)
 	return 0;
 }
 
+/* I have to figure this out I guess, I probably will want a function
+   like this in the api, but, here I ned something that the compiler can inline.  */
+
+static inline int is_true (value *val)
+{
+	return (val->type == VALUE_INT   && val->n) ||
+	       (val->type == VALUE_FLOAT && val->x);
+}
+
 static inline int eval_expression(value *val, node *expr, exec_env *env)
 {
 	int tmp;
@@ -419,6 +427,18 @@ static inline int eval_expression(value *val, node *expr, exec_env *env)
 		tmp = memcmp(&left, &right, sizeof(left));
 		val->n = !tmp;
 		break;
+	case AST_AND:
+		val->type = VALUE_INT;
+		val-> n = (is_true(&left) && is_true(&right)) ? 1 : 0;
+		break;
+	case AST_OR:
+		val->type = VALUE_INT;
+		val-> n = (is_true(&left) || is_true(&right)) ? 1 : 0;
+		break;
+	case AST_NOT:
+		val->type = VALUE_INT;
+		val-> n = is_true(&left) ? 0 : 1;
+		break;
 	default:
 		assert(0);
 		break;
@@ -506,8 +526,7 @@ static inline int execute_if (node *stmt, exec_env *env)
 	} else {
 		ret = 0;
 	}
-	if((val.type == VALUE_INT   && val.n) ||
-	   (val.type == VALUE_FLOAT && val.x)) {
+	if(is_true(&val)) {
 		ret = push_block(env, stmt->right);
 		if(ret >= 0) {
 			env->skip_advance = 1;

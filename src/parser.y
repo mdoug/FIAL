@@ -50,7 +50,7 @@
 %token <sym> ID SYMBOL
 %token <str> STRING
 
-%token VAR CALL IF BREAK CONTINUE
+%token VAR CALL IF BREAK CONTINUE AND NOT OR
 
 %type <ast_node> expr assign statement statements body block if break continue
 %type <ast_node> arglist proc_def var_decl call top
@@ -59,7 +59,9 @@
 %left '*' '/'
 %left NEG
 %left '<' '>' EQUALITY
-
+%left AND OR NOT /* not sure where these should go, or what there
+		    precedence should be in relation to one another,
+		    but this seems more or less right. */
 %%
 
 very_top:
@@ -190,13 +192,16 @@ INT                     {$$ = NODE(AST_INT,     NULL, NULL, @$.line, @$.col); $$
 
 | '-' expr %prec NEG    {$$ = NODE(AST_NEG,          $2, NULL, @$.line, @$.col);}
 | '(' expr ')'          {$$ = $2; }
-| expr '+' expr         {$$ = NODE(AST_PLUS,         $1, $3, @$.line, @$.col);}
-| expr '-' expr         {$$ = NODE(AST_MINUS,        $1, $3, @$.line, @$.col);}
-| expr '*' expr         {$$ = NODE(AST_TIMES,        $1, $3, @$.line, @$.col);}
-| expr '/' expr         {$$ = NODE(AST_DIVIDE,       $1, $3, @$.line, @$.col);}
-| expr EQUALITY expr    {$$ = NODE(AST_EQUALITY,     $1, $3, @$.line, @$.col);}
-| expr '<' expr         {$$ = NODE(AST_LESS_THAN,    $1, $3, @$.line, @$.col);}
-| expr '>' expr         {$$ = NODE(AST_GREATER_THAN, $1, $3, @$.line, @$.col);}
+| expr '+' expr         {$$ = NODE(AST_PLUS,         $1,   $3, @$.line, @$.col);}
+| expr '-' expr         {$$ = NODE(AST_MINUS,        $1,   $3, @$.line, @$.col);}
+| expr '*' expr         {$$ = NODE(AST_TIMES,        $1,   $3, @$.line, @$.col);}
+| expr '/' expr         {$$ = NODE(AST_DIVIDE,       $1,   $3, @$.line, @$.col);}
+| expr EQUALITY expr    {$$ = NODE(AST_EQUALITY,     $1,   $3, @$.line, @$.col);}
+| expr '<' expr         {$$ = NODE(AST_LESS_THAN,    $1,   $3, @$.line, @$.col);}
+| expr '>' expr         {$$ = NODE(AST_GREATER_THAN, $1,   $3, @$.line, @$.col);}
+| expr AND expr         {$$ = NODE(AST_AND,          $1,   $3, @$.line, @$.col);}
+| expr OR  expr         {$$ = NODE(AST_OR,           $1,   $3, @$.line, @$.col);}
+| NOT expr              {$$ = NODE(AST_NOT,          $2, NULL, @$.line, @$.col);}
 ;
 
 %%

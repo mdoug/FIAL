@@ -195,10 +195,19 @@ struct FIAL_finalizer {
 	void *ptr;
 };
 
+struct FIAL_copier {
+	int (*func) (struct FIAL_value *to,
+		     struct FIAL_value *from,
+		     struct FIAL_interpreter *interp,
+		     void *ptr);
+	void *ptr;
+};
+
 struct FIAL_master_type_table {
 	int size;
 	int cap;
 	struct FIAL_finalizer *finalizers;
+	struct FIAL_copier    *copiers;
 };
 
 #define FIAL_INTERP_STATE_NONE   0

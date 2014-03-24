@@ -30,6 +30,9 @@
         ,"EQUALITY"
 	,"GREATER_THAN"
 	,"LESS_THAN"
+	,"AND"
+	,"OR"
+	,"NOT"
     ],
     "other"  :
     [

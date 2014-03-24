@@ -62,5 +62,8 @@ void FIAL_clear_value(struct FIAL_value *val,
 void FIAL_move_value (struct FIAL_value *to,
 		      struct FIAL_value *from,
 		      struct FIAL_interpreter *interp);
+int FIAL_copy_value (struct FIAL_value *to,
+		     struct FIAL_value *from,
+		     struct FIAL_interpreter *interp);
 
 #endif /*FIAL_API_H*/

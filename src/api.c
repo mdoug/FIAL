@@ -22,15 +22,37 @@ static int map_dp_wrapper (struct FIAL_value *a,
 	return FIAL_destroy_symbol_map_value(a, b);
 }
 
+static int map_copier (struct FIAL_value *to,
+			     struct FIAL_value *from,
+			     struct FIAL_interpreter *interp,
+			     void *ptr)
+{
+	(void) ptr;
+
+	assert(from->type == VALUE_MAP);
+	if (to == from)
+		return 0;
+
+	FIAL_clear_value(to, interp);
+	to->type = VALUE_MAP;
+	to->map = FIAL_create_symbol_map();
+	if(!to->map)
+		return -1;
+
+	return FIAL_copy_symbol_map(to->map, from->map, interp);
+}
+#ifdef KEEP_ARRAYS
 static int array_dp_wrapper (struct FIAL_value *a,
 			     struct FIAL_interpreter *b,
 			     void   *c)
 {
 	return FIAL_destroy_array_value(a, b);
 }
+static struct FIAL_finalizer array_fin = {array_dp_wrapper, NULL};
+#endif /* KEEP_ARRAYS */
 
 static struct FIAL_finalizer map_fin   = {map_dp_wrapper,   NULL};
-static struct FIAL_finalizer array_fin = {array_dp_wrapper, NULL};
+static struct FIAL_copier    map_cpy   = {map_copier,       NULL};
 
 #define INITIAL_TYPE_TABLE_SIZE 50
 #if VALUE_USER > INITIAL_TYPE_TABLE_SIZE
@@ -39,22 +61,35 @@ static struct FIAL_finalizer array_fin = {array_dp_wrapper, NULL};
 
 int init_types (struct FIAL_master_type_table *mtt)
 {
-	size_t size;
+	int fin_size, cpy_size;
 
-	mtt->finalizers = calloc((size = sizeof(*(mtt->finalizers))),
+	mtt->finalizers = calloc((fin_size = sizeof(*(mtt->finalizers))),
 				  INITIAL_TYPE_TABLE_SIZE);
 	if(!mtt->finalizers) {
+		return -1;
+	}
+	mtt->copiers = calloc((cpy_size = sizeof(*(mtt->copiers))),
+				  INITIAL_TYPE_TABLE_SIZE);
+	if(!mtt->copiers) {
+		free(mtt->finalizers);
 		return -1;
 	}
 
 	mtt->cap = INITIAL_TYPE_TABLE_SIZE;
 	mtt->size = VALUE_USER;
 
-	assert(size);
-	memset(mtt->finalizers, 0, size);
+	assert(fin_size);
+	assert(cpy_size);
+
+	memset(mtt->finalizers, 0, fin_size);
+	memset(mtt->copiers, 0, cpy_size);
 
 	mtt->finalizers[VALUE_MAP]   = map_fin;
+	mtt->copiers[VALUE_MAP]      = map_cpy;
+
+#ifdef  KEEP_ARRAYS
 	mtt->finalizers[VALUE_ARRAY] = array_fin;
+#endif /* KEEP_ARRAYS */
 
 /*
  * Add extra type finishers here.
@@ -502,13 +537,32 @@ void FIAL_move_value (struct FIAL_value *to,
 		      struct FIAL_interpreter *interp)
 {
 	if(to == from) {
-		memset(from, 0, sizeof(*from));
 		return;
 	}
 	assert(to != from);
 	FIAL_clear_value(to, interp);
 	*to = *from;
 	memset(from, 0, sizeof(*from));
+}
+
+int FIAL_copy_value( struct FIAL_value *to,
+		     struct FIAL_value *from,
+		     struct FIAL_interpreter *interp)
+{
+	struct FIAL_copier *makin_copies;
+	if(to == from)
+		return 0;
+
+	assert(from->type < interp->types.size);
+	makin_copies = interp->types.copiers + from->type;
+
+	if(!makin_copies->func) {
+		memcpy(to, from, sizeof(*to));
+		return 0;
+
+	}
+
+	return makin_copies->func(to, from, interp, makin_copies->ptr);
 }
 
 /* incoming, FIAL_copy_value */

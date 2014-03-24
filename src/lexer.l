@@ -52,9 +52,13 @@ DIGIT [0-9]
 
 "if"          {return IF;}
 "var"         {return VAR;}
-"break"       {return BREAK;}
-"continue"    {return CONTINUE;}
+    /* ok, I am testing out "leave" and "redo" for "break" and "continue" */
+"leave"       {return BREAK;}
+"redo"        {return CONTINUE;}
 "call"        {return CALL;}
+"and"         {return AND;}
+"or"          {return OR;}
+"not"         {return NOT;}
 
 {DIGIT}+             {
 			errno = 0;
