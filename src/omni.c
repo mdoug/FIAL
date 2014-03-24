@@ -92,7 +92,7 @@ int print(int argc, struct FIAL_value **argv,
 			break;
 		case VALUE_FLOAT:
 			printf("FLOAT: %f ", ref->x);
-			return 0;
+			break;
 		case VALUE_TYPE:
 			printf("TYPE object, n: %d ", ref->n);
 			break;

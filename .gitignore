@@ -2,6 +2,10 @@
 \#*#
 *~
 
+#elisp macros
+*.el
+*.elc
+
 #zipity do da
 *.zip
 
@@ -10,3 +14,6 @@
 *.a
 *.lib
 *.exe
+
+#just ignore the whole scripts folder for now
+scripts/*
