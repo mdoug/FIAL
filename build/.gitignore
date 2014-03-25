@@ -11,6 +11,7 @@ lib/*
 TAGS
 *.h
 *.c
+*.report
 
 #binaries
 *.o
