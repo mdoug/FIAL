@@ -53,7 +53,7 @@
 %token VAR CALL IF BREAK CONTINUE AND NOT OR
 
 %type <ast_node> expr assign statement statements body block if break continue
-%type <ast_node> arglist proc_def var_decl call top
+%type <ast_node> arglist proc_def var_decl call top labelled_body
 
 %left '+' '-'
 %left '*' '/'
@@ -96,10 +96,23 @@ arglist:
 			 }
 ;
 
+
 body:
 '{' statements '}'      {$$ = $2;}
-| '{' '}'                 {$$ = NODE(AST_STMTS, NULL, NULL, @$.line, @$.col);}
+| '{' '}'               {$$ = NODE(AST_STMTS, NULL, NULL, @$.line, @$.col);}
 ;
+
+/* this is a little bit of a cheat, since statemsnts doesn't use a
+   value, I am just sticking the label on it, and then I can pass this
+   up to block.  This stuff could be reworked a little bit, and I
+   probably should fix up my trees when I rewrite code to use faster
+   data structures.  */
+
+labelled_body:
+'{' ID ':'  statements '}'     {$$ = $4; $$->sym = $2;}
+| '{' ID ':' '}'               {$$ = NODE(AST_STMTS, NULL, NULL, @$.line, @$.col);$$->sym=$2; }
+;
+
 
 statements:
 statement              {$$ = NODE(AST_STMTS, $1, $1, @$.line, @$.col);}
@@ -107,13 +120,13 @@ statement              {$$ = NODE(AST_STMTS, $1, $1, @$.line, @$.col);}
 ;
 
 statement:
-var_decl   ';'         {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-| call     ';'         {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-| assign   ';'         {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
+var_decl               {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
+| call                 {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
+| assign               {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
 | if                   {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
 | block                {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-| break    ';'         {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-| continue ';'         {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
+| break                {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
+| continue             {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
 ;
 
 var_decl:
@@ -122,12 +135,17 @@ VAR ID                 {$$ = NODE(AST_VAR_DECL, NULL, NULL, @$.line, @$.col); $$
 	                $$->right = $1;}  /*reverses order, should be ok */
 ;
 
+   /* for a while I was using commas instead of periods, but when I
+      eliminated the semicolons at the end of lines, it began to look
+      strange.  So I am just changing it now, the comma syntax is just
+      worse.  I will at least try this for a bit. */
+
 call:
 ID                    '(' arglist ')'   {$$ = NODE(AST_CALL_A, $3, NULL, @$.line, @$.col); $$->sym = $1;}
 | ID                                    {$$ = NODE(AST_CALL_A, NULL, NULL, @$.line, @$.col); $$->sym = $1;}
-| ID ',' ID           '(' arglist ')'   {node *tmp = NODE(AST_ID, NULL, NULL, @$.line, @$.col);  tmp->sym = $3;
+| ID '.' ID           '(' arglist ')'   {node *tmp = NODE(AST_ID, NULL, NULL, @$.line, @$.col);  tmp->sym = $3;
 				         $$ = NODE(AST_CALL_B, tmp, $5, @$.line, @$.col); $$->sym = $1;}
-| ID ',' ID                             {node *tmp = NODE(AST_ID, NULL, NULL, @$.line, @$.col);  tmp->sym = $3;
+| ID '.' ID                             {node *tmp = NODE(AST_ID, NULL, NULL, @$.line, @$.col);  tmp->sym = $3;
 				         $$ = NODE(AST_CALL_B, tmp, NULL, @$.line, @$.col); $$->sym = $1;}
 
 /*
@@ -168,19 +186,23 @@ if:
 IF expr block {$$ = NODE(AST_IF, $2, $3, @$.line, @$.col);}
 ;
 
+/* ok, not sure how to do this, since now I am moving the label into
+   the body.  I guess blocks will just be different things from proc
+   bodies, that's fine. */
+
 block:
-body          {$$ = NODE(AST_BLOCK, $1, NULL, @$.line, @$.col);}
-| ID body     {$$ = NODE(AST_BLOCK, $2, NULL, @$.line, @$.col); $$->sym = $1;}
+body              {$$ = NODE(AST_BLOCK, $1, NULL, @$.line, @$.col);}
+| labelled_body   {$$ = NODE(AST_BLOCK, $1, NULL, @$.line, @$.col); $$->sym = $1->sym;}
 ;
 
 break:
 BREAK         {$$ = NODE(AST_BREAK, NULL, NULL, @$.line, @$.col);}
-| BREAK ID    {$$ = NODE(AST_BREAK, NULL, NULL, @$.line, @$.col); $$->sym = $2;}
+| BREAK ':' ID    {$$ = NODE(AST_BREAK, NULL, NULL, @$.line, @$.col); $$->sym = $3;}
 ;
 
 continue:
 CONTINUE         {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col);}
-| CONTINUE ID    {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col); $$->sym = $2;}
+| CONTINUE ':' ID    {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col); $$->sym = $3;}
 ;
 
 expr:

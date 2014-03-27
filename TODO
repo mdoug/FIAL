@@ -7,6 +7,17 @@ moving.  Once concurrency kicks in, (a) everything will be harder, but
 you are programming with one hand tied behind your back, with no real
 gains from the sacrifices made.
 
+-----------
+
+ok, now that I have a scripting language, now what?  Should I do
+something with it using threads?  That would probably be a logical
+test of it, but I don't know that I am really worried about that not
+working. 
+
+I am definitely at the point where I want to start using it for
+something.  The comic book viewer is ok, but it's more of a side
+project.  Though it wouldn't hurt to fix it up I guess.
+
 ------------
 
 FIXME:
@@ -17,8 +28,12 @@ FIXME:
 
 TODO:
 
-(*) logical operators -- and, or, not.
-(*) write up some documentation.
+(*)(*) write some samples.  -- working on something right now, just basic
+geometry type stuff. 
+(*) write up some documentation.  -- put it on the github wiki, this
+will have to be done at some point.  Once I get a "respectable" level,
+I will go ahead and call it done enough, and then just keep at it in
+the background.
 
 ------------------------------
 

@@ -111,7 +111,6 @@ int print(int argc, struct FIAL_value **argv,
 			break;
 		default:
 			printf("Object of type: %d\n", ref->type);
-			return 1;
 			break;
 		}
 	}

@@ -365,6 +365,7 @@ static inline int eval_expression(value *val, node *expr, exec_env *env)
 		case VALUE_FLOAT:
 		case VALUE_SYMBOL:
 		case VALUE_STRING:
+		case VALUE_TYPE:
 			return tmp;
 			break;
 		default:
@@ -706,7 +707,7 @@ int perform_call_on_node (node *proc, node *arglist,
 			return -1;
 		}
 		if((res = insert_args(proc->left, arglist,
-				      b->values, last_block, env) < 0)) {
+				      b->values, last_block, env)) < 0) {
 			pop_block(env);
 			if(res == -1) {
 				env->error.code = ERROR_BAD_ALLOC;

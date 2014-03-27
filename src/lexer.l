@@ -150,6 +150,8 @@ $[a-zA-Z_][a-zA-Z_0-9]* {
  "=="                {return EQUALITY;}
  "<"                 {return '<';}
  ">"                 {return '>';}
+ ":"                 {return ':';}
+ "."                 {return '.';}
 
  [[:blank:]]         {}
  \n                  {FIAL_parser_line_no++;
