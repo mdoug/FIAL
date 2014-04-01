@@ -53,8 +53,8 @@ DIGIT [0-9]
 "if"          {return IF;}
 "var"         {return VAR;}
     /* ok, I am testing out "leave" and "redo" for "break" and "continue" */
-"leave"       {return BREAK;}
-"redo"        {return CONTINUE;}
+"leave"       {return LEAVE;}
+"redo"        {return REDO;}
 "call"        {return CALL;}
 "and"         {return AND;}
 "or"          {return OR;}

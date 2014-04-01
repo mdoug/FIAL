@@ -50,10 +50,10 @@
 %token <sym> ID SYMBOL
 %token <str> STRING
 
-%token VAR CALL IF BREAK CONTINUE AND NOT OR
+%token VAR CALL IF LEAVE REDO AND NOT OR
 
-%type <ast_node> expr assign statement statements body block if break continue
-%type <ast_node> arglist proc_def var_decl call top labelled_body
+%type <ast_node> expr assign statement statements body block redo if leave
+%type <ast_node> arglist proc_def var_decl call top labelled_body common_body
 
 %left '+' '-'
 %left '*' '/'
@@ -96,23 +96,54 @@ arglist:
 			 }
 ;
 
+/*
+ * Ok, I have to add back in smoe stuff.  I took this out of statements:
+
+| break                {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
+| continue             {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
+
+  Because I have to change it to only allow leave and redo as the last
+  statement in a body.
+
+ */
+
+
 
 body:
-'{' statements '}'      {$$ = $2;}
-| '{' '}'               {$$ = NODE(AST_STMTS, NULL, NULL, @$.line, @$.col);}
+'{'  common_body      {$$ = $2;}
 ;
 
-/* this is a little bit of a cheat, since statemsnts doesn't use a
+/*
+   Unfortunately, this has to be separate from "body", because proc
+   bodies can't have labels.
+
+   This is a little bit of a cheat, since statemsnts doesn't use a
    value, I am just sticking the label on it, and then I can pass this
    up to block.  This stuff could be reworked a little bit, and I
-   probably should fix up my trees when I rewrite code to use faster
-   data structures.  */
+   probably should fix up my trees when I rewrite the interpreter to
+   use better internal data structures.
+
+ */
 
 labelled_body:
-'{' ID ':'  statements '}'     {$$ = $4; $$->sym = $2;}
-| '{' ID ':' '}'               {$$ = NODE(AST_STMTS, NULL, NULL, @$.line, @$.col);$$->sym=$2; }
+'{' ID ':'   common_body   {$$ = $4; $$->sym = $2;}
 ;
 
+/* common between body and labelled body.  Have to manually add leave
+and redo statements, since they end a block.  */
+
+common_body:
+statements '}'      {$$ = $1;}
+| statements leave  {node *tmp = NODE(AST_STMT, $2, NULL, @2.line, @2.col);
+                     $$ = $1; $$->right->right = tmp; $$->right = tmp;}
+| statements redo   {node *tmp = NODE(AST_STMT, $2, NULL, @2.line, @2.col);
+                     $$ = $1; $$->right->right = tmp; $$->right = tmp;}
+
+| '}'               {$$ = NODE(AST_STMTS, NULL, NULL, @$.line, @$.col);}
+| leave             {node *tmp = NODE(AST_STMT, $1, NULL, @$.line, @$.col);
+                     $$ = NODE(AST_STMTS, tmp, tmp, @$.line, @$.col);}
+| redo              {node *tmp = NODE(AST_STMT, $1, NULL, @$.line, @$.col);
+                     $$ = NODE(AST_STMTS, tmp, tmp, @$.line, @$.col);}
 
 statements:
 statement              {$$ = NODE(AST_STMTS, $1, $1, @$.line, @$.col);}
@@ -125,8 +156,6 @@ var_decl               {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
 | assign               {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
 | if                   {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
 | block                {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-| break                {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-| continue             {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
 ;
 
 var_decl:
@@ -195,14 +224,15 @@ body              {$$ = NODE(AST_BLOCK, $1, NULL, @$.line, @$.col);}
 | labelled_body   {$$ = NODE(AST_BLOCK, $1, NULL, @$.line, @$.col); $$->sym = $1->sym;}
 ;
 
-break:
-BREAK         {$$ = NODE(AST_BREAK, NULL, NULL, @$.line, @$.col);}
-| BREAK ':' ID    {$$ = NODE(AST_BREAK, NULL, NULL, @$.line, @$.col); $$->sym = $3;}
+leave:
+LEAVE ':' ID '}'   {$$ = NODE(AST_BREAK, NULL, NULL, @$.line, @$.col); $$->sym = $3;}
+| LEAVE ID '}'     {$$ = NODE(AST_BREAK, NULL, NULL, @$.line, @$.col); $$->sym = $2;}
 ;
 
-continue:
-CONTINUE         {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col);}
-| CONTINUE ':' ID    {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col); $$->sym = $3;}
+redo:
+REDO '}'          {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col);}
+| REDO ':' ID '}' {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col); $$->sym = $3;}
+| REDO ID '}'     {$$ = NODE(AST_CONTINUE, NULL, NULL, @$.line, @$.col); $$->sym = $2;}
 ;
 
 expr:

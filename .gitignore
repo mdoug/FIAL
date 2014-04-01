@@ -15,5 +15,6 @@
 *.lib
 *.exe
 
-#just ignore the whole scripts folder for now
+#just ignore the whole scripts and wiki folders for now
 scripts/*
+wiki/*

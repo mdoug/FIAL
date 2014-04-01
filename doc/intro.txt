@@ -230,13 +230,7 @@ switch {
 	}
 }
 
---------------------
-
-Note that the above was pseudo-code -- an identifier followed by a
-semicolon is not legal in FIAL.
-
-
---------------------
+------------------------------
 
 Loops are also simple, this example is using a block named "loop" to
 add numbers 1 through 10.
