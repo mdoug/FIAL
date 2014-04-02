@@ -142,6 +142,7 @@ static int load_lib (int argc, struct FIAL_value **args,
 	union FIAL_lib_entry *lib_ent  = NULL;
 	int ret                         = 0;
 	struct FIAL_value val           = {0};
+	int new_lib                     = 0;
 
 	if(env->interp->state != FIAL_INTERP_STATE_LOAD) {
 		env->error.code = ERROR_INTERP_STATE;
@@ -184,24 +185,19 @@ static int load_lib (int argc, struct FIAL_value **args,
 		}
 	}
 
-	memset(&env->error, 0, sizeof(env->error));
-	ret = FIAL_load_string(env->interp, args[1]->str, &lib_ent, &env->error);
-	if(ret < 0)
-		return -1;
-
-	memset(&env->error, 0, sizeof(env->error));
-
-	/* FIXME, this quite simply isn't good enough -- have to pass
-	 * back dynamic load info.  */
-
-	if(ret == -1) {
-		env->error.code = ERROR_LOAD;
-		env->error.static_msg = "Error loading file.";
-		return -1;
+	if(FIAL_load_lookup (env->interp, args[1]->str, &lib_ent)) {
+		new_lib = 0;
+	} else {
+		new_lib = 1;
+		memset(&env->error, 0, sizeof(env->error));
+		ret = FIAL_load_string(env->interp, args[1]->str,
+				       &lib_ent, &env->error);
+		if(ret < 0)
+			return -1;
+		memset(&env->error, 0, sizeof(env->error));
 	}
-
 	assert(lib_ent);
-	if( lib_ent->type == FIAL_LIB_FIAL) {
+	if( new_lib && lib_ent->type == FIAL_LIB_FIAL ) {
 		struct FIAL_proc fp;
 
 		val.type  =  VALUE_LIB;
@@ -212,18 +208,23 @@ static int load_lib (int argc, struct FIAL_value **args,
 				return -1;
 			}
 		}
-	} else {
-		assert(lib_ent->type == FIAL_LIB_C);
-		val.type   = VALUE_C_LIB;
-		val.c_lib  = &lib_ent->c_lib;
+	} else  {
+		if (lib_ent->type == FIAL_LIB_FIAL) {
+			assert(!new_lib);
+			val.type  =  VALUE_LIB;
+			val.lib   =  &lib_ent->lib;
+		} else {
+			assert(lib_ent->type == FIAL_LIB_C);
+			val.type   = VALUE_C_LIB;
+			val.c_lib  = &lib_ent->c_lib;
+		}
 	}
-
 	assert(env->lib->libs);
 
 /* FIXME: this doesn't check if the symbol was overwritten--maybe that's ok. */
 
 /* i'm really not sure this is the right set symbol, but it's fine for
- * now, all these structures are in a state of flux, unfortubately.*/
+ * now, all these structures are in a state of flux, unfortunately.*/
 	FIAL_set_symbol(env->lib->libs, args[0]->sym, &val, env);
 	return ret;
 }

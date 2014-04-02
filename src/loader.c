@@ -236,7 +236,10 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 /* this will perfrom a library lookup, returns 0 on success, 1 if it
    couldn't find it.  Doesn;t actuall load anything, called "load"
    because it uses load parameter conventions, interp-label-lib_entry.
-   Does not modify ret_lib on failure.  */
+   Does not modify ret_lib on failure.
+
+   why does it return 0 if it finds it?  That is lunacy.  I'm changing it.
+*/
 
 int FIAL_load_lookup (struct FIAL_interpreter *interp,
 		      const char *lib_label,
@@ -246,10 +249,10 @@ int FIAL_load_lookup (struct FIAL_interpreter *interp,
 	for(iter = interp->libs; iter != NULL; iter = iter->stub.next) {
 		if(strcmp(iter->stub.label, lib_label) == 0) {
 			*ret_lib = iter;
-			return 0;
+			return 1;
 		}
 	}
-	return 1;
+	return 0;
 }
 
 /* this will lookup the string label first, and if it is available, it
@@ -260,7 +263,7 @@ int FIAL_load_string (struct FIAL_interpreter    *interp,
 	              union FIAL_lib_entry     **new_lib,
 		      struct FIAL_error_info      *error)
 {
-	if(!FIAL_load_lookup(interp, lib_label, new_lib))
+	if(FIAL_load_lookup(interp, lib_label, new_lib))
 		return 1;
 
 	return  FIAL_load_file(interp, lib_label, new_lib, error);

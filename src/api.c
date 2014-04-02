@@ -390,7 +390,7 @@ int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
 	memset(proc, 0, sizeof(*proc));
 
 	proc->interp = interp;
-	if(FIAL_load_lookup(interp, lib_label, &lib))
+	if(!FIAL_load_lookup(interp, lib_label, &lib))
 		return -1;
 	proc->lib = lib;
 	if(lib->type == FIAL_LIB_FIAL) {
