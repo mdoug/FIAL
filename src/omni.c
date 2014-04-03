@@ -699,6 +699,13 @@ static int array_set (int argc, struct FIAL_value **args,
 }
 #endif /* KEEP_ARRAYS */
 
+static int break_on_me (int argc, struct FIAL_value **args,
+			 struct FIAL_exec_env *env,
+			 void *ptr)
+{
+	return 0;
+}
+
 struct FIAL_c_func_def omni_lib[] = {
 	{"print"    , print    ,      NULL},
 	{"load"     , load_lib ,      NULL},
@@ -707,6 +714,7 @@ struct FIAL_c_func_def omni_lib[] = {
 	{"register" , register_type , NULL},
 	{"type_of"  , get_type_of ,   NULL},
 	{"const"    , get_constant,   NULL},
+	{"break"    , break_on_me,    NULL},
 	{NULL       , NULL        ,   NULL}
 };
 

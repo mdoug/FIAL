@@ -55,13 +55,13 @@
 %type <ast_node> expr assign statement statements body block redo if leave
 %type <ast_node> arglist proc_def var_decl call top labelled_body common_body
 
+%left AND OR NOT /* not sure where these should go, or what there
+		    precedence should be in relation to one another,
+		    but this seems more or less right. */
 %left '+' '-'
 %left '*' '/'
 %left NEG
 %left '<' '>' EQUALITY
-%left AND OR NOT /* not sure where these should go, or what there
-		    precedence should be in relation to one another,
-		    but this seems more or less right. */
 %%
 
 very_top:
