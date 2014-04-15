@@ -1,7 +1,7 @@
 {
     "prefix"   : "FIAL",
     "type"     : "AST",
-    "segments" : ["stmt", "expr", "other"],
+    "segments" : ["stmt", "expr", "arglist", "initializer", "other"],
     "stmt"     :
     [
 	"ASSIGN"
@@ -34,17 +34,39 @@
 	,"OR"
 	,"NOT"
     ],
+    "arglist" :
+    [
+	"ARGLIST_ID"
+	,"ARGLIST_EXPR"
+	,"ARGLIST_INIT"
+	,"ARGLIST_MOVE_ID"
+	,"ARGLIST_COPY_ID"
+	,"ARGLIST_MOVE_ACS"
+	,"ARGLIST_COPY_ACS"
+    ],
+    "initializer" :
+    [
+	"INIT_EXPRESSION"
+	,"INIT_INITIALIZER"
+	,"INIT_MOVE_ID"
+	,"INIT_COPY_ID"
+	,"INIT_MOVE_ACS"
+	,"INIT_COPY_ACS"
+    ],
     "other"  :
     [
 	"STMT"
 	,"STMTS"
+	,"ARG_DECL"
 	,"ARGLIST"
 	,"ID"
 	,"EXPR_PAIR"
 	,"TOP_NODE"
 	,"TOP"
 	,"PROC_DEF"
-
-
+	,"MAP_ACS"
+	,"MAP_INITIALIZER"
+	,"SEQ_INITIALIZER"
+	,"VAR_DECL_ITEM"
     ]
 }

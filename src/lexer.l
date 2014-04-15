@@ -13,13 +13,10 @@
 #include "interp.h"
 
 #include "parser_defines.h"
-
 #include "parser.tab.h"
 
 #define PARSE_ERROR(X)    assert((0, X))
 #define PARSE_WARNING(X)  assert((0, X))
-
-
 
 #define YY_USER_ACTION yylloc.line   = FIAL_parser_line_no; yylloc.col = FIAL_parser_col_no;\
 		       FIAL_parser_col_no += yyleng;
@@ -151,11 +148,14 @@ $[a-zA-Z_][a-zA-Z_0-9]* {
  "<"                 {return '<';}
  ">"                 {return '>';}
  ":"                 {return ':';}
+ "::"                {return DOUBLE_COLON;}
  "."                 {return '.';}
+
 
  [[:blank:]]         {}
  \n                  {FIAL_parser_line_no++;
  		     FIAL_parser_col_no = 1;}
+.                    {return UNKNOWN;}
 
 %%
 

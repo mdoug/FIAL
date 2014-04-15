@@ -58,21 +58,51 @@ int FIAL_destroy_ast_node(struct FIAL_ast_node *n)
 	right, as that is the typical case. */
 
 	switch(n->type) {
+/*
+ *  these are list headers, only delete left side, right side contains
+ *  a link to the last node, which is used to build the list.
+ *
+ *  obviously, fall through provides somewhat cleaner code, but
+ *  seperate cases provides unique stack traces.
+ */
 	case AST_TOP:
 		FIAL_destroy_ast_node(n->left);
 		break;
-	case AST_ARGLIST:
-		FIAL_destroy_ast_node(n->right);
+	case AST_MAP_INITIALIZER:
+		FIAL_destroy_ast_node(n->left);
+		break;
+	case AST_SEQ_INITIALIZER:
+		FIAL_destroy_ast_node(n->left);
 		break;
 	case AST_STMTS:
 		FIAL_destroy_ast_node(n->left);
+		break;
+	case AST_ARGLIST:
+		FIAL_destroy_ast_node(n->left);
+		break;
+	case AST_VAR_DECL:
+		FIAL_destroy_ast_node(n->left);
+		break;
+/*
+ * These are lists that sneak in the last element as the left hand
+ * side of the first element, only delete right side.
+ *
+ * These seem a bit hacky, I should probably switch to the header node
+ * style for everything.  They have the advantage of being able to
+ * store the length of the list in the header nodes's ->n field.
+ */
+
+	case AST_ARG_DECL:
+		FIAL_destroy_ast_node(n->right);
+		break;
+	case AST_MAP_ACS:
+		FIAL_destroy_ast_node(n->right);
 		break;
 	default:
 		FIAL_destroy_ast_node(n->left);
 		FIAL_destroy_ast_node(n->right);
 		break;
 	}
-
 
 	if(n->type == AST_STRING)
 	    STRING_FREE(n->str);

@@ -16,9 +16,20 @@
 typedef struct FIAL_symbol_map symbol_map;
 typedef struct FIAL_value value;
 
-/* I guess I am still using these, but I expect to just get rid of
-   them and use normal malloc calls -- if I need to, I can always
-   implement a new malloc or download one or something.  */
+/*
+ * These were made with the best of intentions, but this is just crazy
+ * at this point.  I've stopped using them, I should eliminate them.
+ *
+ * Obviously, I wouldn't be adverse to having ways to set up custom
+ * allocators, but it will be easier to get the data structures the
+ * way I want them first, and then figure out whether to allow
+ * overriding the allocators.
+ *
+ * At this point, this isn't just going against the "you aren't going
+ * to need it" principle, which I am not entirely sure I agree with,
+ * it is also going against the KISS principle, which I am adopting
+ * whole heartedly.
+ */
 
 #define MAP_ALLOC(x)    malloc(x)
 #define MAP_FREE(x)     free(x)
@@ -148,7 +159,6 @@ int FIAL_set_symbol(symbol_map *m, int sym, value const *val,
 				tmp = iter->val.ref;
 			else
 				tmp = &iter->val;
-
 			set_symbol_finalize(tmp, env);
 			*tmp = *val;
 			return 0;
@@ -388,6 +398,8 @@ int FIAL_register_type(int *new_type,
 	*new_type    = interp->types.size;
 	if(fin)
 		interp->types.finalizers[interp->types.size] = *fin;
+	if(cpy)
+		interp->types.copiers[interp->types.size] = *cpy;
 	interp->types.size++;
 
 	return 0;

@@ -7,10 +7,14 @@ struct FIAL_ltype {
     int line;
     int col;
     const char *file;
-};
+};  /* not a define, I should rename this file */
 
 #define YYLTYPE struct FIAL_ltype
+#define YYLTYPE_IS_DECLARED
 
+extern YYLTYPE yylloc;  /* not exactly a define, is it?  */
+
+#ifdef USE_BISON_YYLLOC
 #define YYLLOC_DEFAULT(Cur, Rhs, N)                      \
     do{                                                  \
 	if(N) {                                          \
@@ -23,3 +27,24 @@ struct FIAL_ltype {
 	    (Cur).file = YYRHSLOC(Rhs, 0).file;          \
         }                                                \
     }while(0)
+
+#else /* USE_BISON_YYLLOC -- this assumes byacc */
+
+#define YYLLOC_DEFAULT(loc, rhs, n) \
+do \
+{ \
+    if (n == 0) \
+    { \
+        (loc).line = ((rhs)[-1]).line; \
+        (loc).col  = ((rhs)[-1]).col;  \
+        (loc).file = ((rhs)[-1]).file; \
+    } \
+    else \
+    { \
+        (loc).line   = ((rhs)[ 0 ]).line; \
+        (loc).col    = ((rhs)[ 0 ]).col;  \
+	(loc).file   = ((rhs)[ 0 ]).file; \
+    } \
+} while (0)
+
+#endif /* USE_BISON_YYLLOC */

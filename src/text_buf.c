@@ -85,6 +85,8 @@ int FIAL_text_buf_append_str (struct FIAL_text_buf *buffy, char *str)
 int FIAL_text_buf_append_text_buf (struct FIAL_text_buf *buffy,
 				   struct FIAL_text_buf *willow)
 {
+	if(willow->buf == NULL)
+		return 0;
 	if(FIAL_text_buf_reserve(buffy, willow->len) == -1)
 		return -1;
 	memmove(buffy->buf + buffy->len, willow->buf, willow->len + 1);

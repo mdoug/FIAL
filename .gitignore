@@ -6,6 +6,9 @@
 *.el
 *.elc
 
+#TGAS wherever they end up
+TAGS
+
 #zipity do da
 *.zip
 
@@ -15,6 +18,7 @@
 *.lib
 *.exe
 
-#just ignore the whole scripts and wiki folders for now
+#just ignore the whole scripts, samples and wiki folders for now
 scripts/*
 wiki/*
+samples/*

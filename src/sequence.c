@@ -11,6 +11,13 @@
 
 #define DEFAULT_SEQ_SIZE 24
 
+/*
+ * I should add a routine that sets allocates a certain amount of
+ * memory at some point.  Didn't percieve the need at first, but it
+ * would be useful for initializers and for a possible make tuple
+ * proc.
+ */
+
 struct FIAL_seq *FIAL_create_seq (void)
 {
 	struct FIAL_seq *seq;

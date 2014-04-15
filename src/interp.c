@@ -8,6 +8,8 @@
 #include "basic_types.h"
 #include "error_macros.h"
 #include "error_def_short.h"
+#include "sequence.h"
+#include "api.h"
 
 /*these are needed for sanity, internal only so don't have to worry
  * about name conflicts.  So, functions prototypes in the header
@@ -25,20 +27,21 @@ typedef FIAL_symbol symbol;
 #define set_symbol(x,y,z, w) FIAL_set_symbol(x,y,z, w)
 #define create_symbol_map()    FIAL_create_symbol_map()
 
+/*************************************************************
+ *
+ * Prototypes
+ *
+ *************************************************************/
+
+static int handle_initializer  (value *val, node *init, exec_env *env);
+static int get_initialized_seq(value *val, node *init, exec_env *env);
+static int get_initialized_map(value *val, node *init, exec_env *env);
+static int eval_expression(value *val, node *expr, exec_env *env);
+
 /*************************************************************/
-
-#define FIAL_ALLOC(x)        malloc(x)
-#define FIAL_REALLOC(x, y)   realloc(x, y)
-#define FIAL_ALLOC_ERROR(x)  assert((x, 0))
-
-#define ALLOC(x)             malloc(x)
-#define FREE(x)              free(x)
 
 #define SYMBOL_TABLE_START_SIZE 100
 #define SYMBOL_LENGTH 31
-
-#define ERROR(X) FIAL_INTERP_ERROR(X)
-#define ALLOC_ERROR(x) ERROR(x)
 
 /*
  * Still not sure about the best place to put this thing...
@@ -105,8 +108,8 @@ int FIAL_get_symbol(FIAL_symbol *sym,
 		st->symbols[0] = NULL;  /*0 is not a valid symbol*/
 	} else if (st->cap == st->size) {
 		assert(st->symbols);
-		char **tmp;
-		tmp = FIAL_REALLOC(st->symbols, st->cap * 2 * sizeof(*st->symbols));
+	char **tmp;
+		tmp = realloc(st->symbols, st->cap * 2 * sizeof(*st->symbols));
 		if(!tmp){
 			return -1;
 		}
@@ -121,7 +124,7 @@ int FIAL_get_symbol(FIAL_symbol *sym,
 		return 0;
 	}
 	*sym = st->size;
-	new_sym = FIAL_ALLOC(SYMBOL_LENGTH + 1);
+	new_sym = malloc(SYMBOL_LENGTH + 1);
 	strncpy(new_sym, text, SYMBOL_LENGTH);
 	new_sym[SYMBOL_LENGTH] = '\0';
 	st->symbols[st->size++] = new_sym;
@@ -129,10 +132,17 @@ int FIAL_get_symbol(FIAL_symbol *sym,
 }
 
 /*
- *  Would be better to handle this without copying.  But for now I am
- *  just going to do everything with my little symbol map structure,
- *  which doesn't have an interface for references just now.  No point
- *  in adding it either really, it is just a stop gap measure.
+ * DANGER!
+ *
+ * This returns a copy of the value, without calling the copy
+ * procedure.  Do NOT leave both the returned value, and the original
+ * value, in play, unless they are known to have default copiers.
+ *
+ * I don't have anything better than this, unfortunately.  It would
+ * maybe be better to return the pointer to the original value, but
+ * that would also require caution to use.  This proc makes sense in
+ * the context of expression evaluation, so that's why it is the way
+ * it is.
  */
 
 static inline int lookup_symbol_value (value *val, symbol sym, exec_env *env)
@@ -151,6 +161,93 @@ static inline int lookup_symbol_value (value *val, symbol sym, exec_env *env)
 	memset(val, 0, sizeof(*val));
 	return 1;
 }
+
+/*
+ *  ok, I'm going to use this for the map accessors in move/copy type
+ *  stuff.
+ *
+ *  Take care when rewriting data structures for the value table that
+ *  changing this function doesn't break the code.
+ */
+
+static inline int get_ref_from_sym_value_table(value *ref, symbol sym,
+					       struct FIAL_symbol_map *map)
+{
+	struct FIAL_symbol_map_entry *iter;
+	for(iter = map->first; iter != NULL; iter = iter->next) {
+		if(iter->sym == sym) {
+			memset(ref, 0, sizeof(*ref));
+			ref->type = VALUE_REF;
+			if(iter->val.type == VALUE_REF)
+			    ref->ref = iter->val.ref;
+			else
+			    ref->ref = &iter->val;
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static inline int get_ref_from_sym_block_stack (value *ref, symbol sym, block *bs)
+{
+	block *iter;
+	for(iter = bs; iter != NULL; iter= iter->next) {
+		if(iter->values) {
+			int result =
+				get_ref_from_sym_value_table(ref, sym,
+							 iter->values);
+			if (result == 0) {
+				return 0;
+			}
+		}
+	}
+
+	memset(ref, 0, sizeof(*ref));
+	return 1;
+}
+
+/*I think I have to chill out with all the "inlines", especially on
+  non-small functions that will likely be reused.
+
+  these "get_ref" functions are returning 1 when no ref is found, so
+  I'm going to keep that going.
+
+  will return -1 in the event that something other than a map is being
+  accessed.
+*/
+static  int get_ref_from_map_access (value *ref, node *map_access,
+				     block *bs)
+{
+	value val, none;
+	node *iter;
+
+	assert(map_access);
+	assert(map_access->right);
+	assert(ref);
+
+	memset(&none, 0, sizeof(none));
+	if(get_ref_from_sym_block_stack(&val, map_access->sym, bs) != 0) {
+		*ref = none;
+		return 1;
+	}
+	for(iter = map_access->right; iter != NULL; iter = iter->right) {
+		assert(val.type == VALUE_REF);
+		if(val.ref->type != VALUE_MAP) {
+			return -1;
+		}
+		if(get_ref_from_sym_value_table(&val,iter->sym,
+						val.ref->map)!=0) {
+			*ref = none;
+			return 1;
+		}
+	}
+	*ref = val;
+	return 0;
+}
+
+/* returns -1 on bad allot,
+   returns -2 on error when initializing  */
+
 
 static inline int declare_variable (node *stmt, exec_env *env)
 {
@@ -175,12 +272,18 @@ static inline int declare_variable (node *stmt, exec_env *env)
 	}
 	assert(env->block_stack->values);
 
-/* I think I am taking this out, I am ok with allowing redeclaration
+/*
+ * I think I am taking this out, I am ok with allowing redeclaration
  * of variables within the same block.  I'm not worried about the
  * compiler, mangling variable names is not a big problem. But, under
- * the current implementation,  Allowing it would lead to bugs. */
+ * the current implementation,  Allowing it would lead to bugs.
+ *
+ * I forgot what bugs would be caused by this, unfortunately, I didn't
+ * write it down as far as I can see.  Anyway, I am ok leaving this
+ * until I redesign the main value stack data structure.
+ */
 
-	for(iter = stmt; iter!= NULL; iter=iter->right) {
+	for(iter = stmt->left; iter!= NULL; iter=iter->right) {
 		failure = lookup_symbol(&v1, env->block_stack->values,
 					iter->sym);
 		if(!failure) {
@@ -192,10 +295,28 @@ static inline int declare_variable (node *stmt, exec_env *env)
     				"variable within the same "
 				"block.";
 			return -1;
-
 		} else {
-			set_symbol(env->block_stack->values, iter->sym, &tmp,
-				   env);
+			value val = tmp;
+			if(iter->left) {
+				if(iter->left->type == AST_SEQ_INITIALIZER ||
+				   iter->left->type == AST_MAP_INITIALIZER) {
+					if( handle_initializer
+					    (&val, iter->left,env) < 0)
+						return -1;
+				} else {
+					if(eval_expression(&val, iter->left,
+							   env) < 0)
+						return -1;
+				}
+			}
+			if ( set_symbol(env->block_stack->values, iter->sym,
+					&val, env) < 0) {
+				env->error.code = ERROR_BAD_ALLOC;
+				env->error.static_msg =
+					"couldn't allocate space for new value";
+				FIAL_set_error(env);
+				return -1;
+			}
 		}
 	}
 	return 0;
@@ -233,7 +354,6 @@ static inline int eval_float_bi_op(value *val, char op, value *left, value *righ
 	}
 	return 0;
 }
-
 
 static inline int eval_int_bi_op(value *val, char op, value *left, value *right)
 {
@@ -323,7 +443,56 @@ static inline int is_true (value *val)
 	       (val->type == VALUE_FLOAT && val->x);
 }
 
-static inline int eval_expression(value *val, node *expr, exec_env *env)
+static inline int access_map (value *val, node *map_access, exec_env *env)
+{
+	int tmp;
+	node *iter;
+	value Fv, *map;
+
+	if((tmp = lookup_symbol_value(&Fv, map_access->sym, env)) != 0) {
+		env->error.static_msg = "unknown map in expression";
+		goto error;
+	}
+	if(Fv.type != VALUE_MAP) {
+		env->error.static_msg = "attempt to access member of something "
+		                        "that is not a map in an expression.";
+		goto error;
+	}
+
+	iter = map_access->right;
+	map = &Fv;
+
+	while(iter->right) {
+		if(FIAL_lookup_symbol(&Fv, map->map, iter->sym) != 0) {
+			env->error.static_msg = "attempt to access member of something "
+			                        "that is not a map in an expression.";
+			goto error;
+		}
+		if(Fv.type != VALUE_MAP) {
+			env->error.static_msg = "attempt to access member of something "
+			                        "that is not a map in an expression.";
+			goto error;
+		}
+
+		map = &Fv;
+		iter = iter->right;
+	}
+
+	assert(iter);
+	assert(iter->right == NULL);
+
+	FIAL_lookup_symbol(val, map->map, iter->sym);
+	return 0;
+
+ error:
+	env->error.code = ERROR_INVALID_EXPRESSION;
+	env->error.line = map_access->loc.line;
+	env->error.col  = map_access->loc.col;
+	env->error.file = env->lib->label;
+	return -1;
+}
+
+static int eval_expression(value *val, node *expr, exec_env *env)
 {
 	int tmp;
 	value left, right;
@@ -332,17 +501,59 @@ static inline int eval_expression(value *val, node *expr, exec_env *env)
  * deal with uninitiated stuff right now. */
 
 	tmp = 0;
-	memset(val, 0, sizeof(*val));
-	memset(&left, 0, sizeof(*val));
+	memset(val,    0, sizeof(*val));
+	memset(&left,  0, sizeof(*val));
 	memset(&right, 0, sizeof(*val));
 
-	if(expr->left)
+
+	/* have to handle this first, since it is a terminal, but it
+	 * has a left and a right operand.  This way everything else
+	 * can carry on unchanged.
+	 *
+	 * if this is going to get moved into the switch somehow, it's
+	 * value in ast_defines.json has to be moved, so that the code
+	 * will optomize into a jumptable.
+	 */
+
+	if(expr->type == AST_MAP_ACS) {
+		if(access_map(val, expr, env) < 0)
+			return -1;
+		/* convert non expressable types to value_error */
+		switch(val->type) {
+		case VALUE_NONE:
+		case VALUE_ERROR:
+		case VALUE_INT:
+		case VALUE_FLOAT:
+		case VALUE_SYMBOL:
+		case VALUE_STRING:
+		case VALUE_TYPE:
+			return 0;
+			break;
+		default:
+			memset(val, 0, sizeof(*val));
+			val->type = VALUE_ERROR;
+			return 1;
+			break;
+		}
+		assert(0);
+		return 0;
+	}
+	if(expr->left) {
 		if((tmp = eval_expression(&left, expr->left, env)) < 0)
 			return tmp;
-	if (expr->right)
+		if(left.type == VALUE_ERROR) {
+			*val = left;
+			return 1;
+		}
+	}
+	if (expr->right) {
 		if((tmp = eval_expression(&right, expr->right, env)) < 0)
 			return tmp;
-
+		if(right.type == VALUE_ERROR) {
+			*val = right;
+			return 1;
+		}
+	}
 	switch (expr->type)  {
 	case AST_INT:
 		val->type = VALUE_INT;
@@ -357,7 +568,14 @@ static inline int eval_expression(value *val, node *expr, exec_env *env)
 		val->sym  = expr->sym;
 		break;
 	case AST_EXPR_ID:
-		tmp = lookup_symbol_value(val, expr->sym, env);
+		if((tmp = lookup_symbol_value(val, expr->sym, env)) != 0) {
+			env->error.code = ERROR_INVALID_EXPRESSION;
+			env->error.line = expr->loc.line;
+			env->error.col  = expr->loc.col;
+			env->error.file = env->lib->label;
+			env->error.static_msg = "unbound variable in expression";
+			return -1;
+		}
 		switch(val->type) {
 		case VALUE_NONE:
 		case VALUE_ERROR:
@@ -479,27 +697,340 @@ static inline int set_env_symbol (exec_env *env, symbol sym, value *val)
 }
 
 
+
+/*
+ *  get_initialized_map / get_initialized_seq --
+ *
+ *  returns -1: bad alloc,
+ *          -2: expr error.
+ *          -3: unbound variable.
+ *          -4: map access.
+ */
+
+enum init_type {INIT_SEQ, INIT_MAP};
+static int get_initialized_value (const enum init_type, value *val, node *init,
+				  exec_env *env);
+
+
+static int get_initialized_seq(value *val, node *init, exec_env *env)
+{
+	return get_initialized_value(INIT_SEQ, val, init, env);
+}
+
+static int get_initialized_map(value *val, node *init, exec_env *env)
+{
+	return get_initialized_value(INIT_MAP, val, init, env);
+}
+
+/* each your heart out, C++ */
+static int get_initialized_value (const enum init_type init_type, value *val, node *init,
+				  exec_env *env)
+{
+	int res;
+	value tmp, tmp2, none;
+	node *iter;
+
+	assert (val && init && env && init->right && init->left);
+	assert (init_type == INIT_MAP || init_type == INIT_SEQ);
+
+	if(init_type == INIT_SEQ) {
+		val->type = VALUE_SEQ;
+		val->seq  = FIAL_create_seq();
+		if(!val->seq)
+			return -1;
+
+	} else {
+		val->type = VALUE_MAP;
+		val->map  = FIAL_create_symbol_map();
+		if(!val->map)
+			return -1;
+	}
+	memset(&none, 0, sizeof(none));
+
+/* this coding style is a bit inelegant, but it seems simplest.  If
+ * there were more than two alternative initializers, I would prefer
+ * this seperated out into different functions, this is about the
+ * limit of the complexity of decision logic that I want to deal
+ * with. */
+
+	for(iter = init->left; iter != NULL; iter = iter->right) {
+
+/* just initializing the buggers at the top of the loop, this could
+ * maybe be skipped, but that would be an optomization that I don't
+ * need to mess with right now.
+ */
+		tmp = tmp2 = none;
+		switch(iter->type) {
+		case AST_INIT_EXPRESSION:
+			if(eval_expression(&tmp, iter->left, env) < 0) {
+				FIAL_seq_in(val->seq, &tmp);
+				return -2;
+			}
+			if (init_type == INIT_SEQ) {
+				if( FIAL_seq_in(val->seq, &tmp) < 0) {
+					return -1;
+				}
+			} else {
+				if(FIAL_set_symbol(val->map, iter->sym,
+						   &tmp, env)<0) {
+					return -1;
+				}
+			}
+			break;
+		case AST_INIT_INITIALIZER:
+			switch(iter->left->type) {
+			case AST_SEQ_INITIALIZER:
+				if((res = get_initialized_seq
+				    (&tmp, iter->left, env)) < 0) {
+					return res;
+				}
+				break;
+			case AST_MAP_INITIALIZER:
+				if((res = get_initialized_map
+				    (&tmp, iter->left, env)) < 0) {
+					return res;
+				}
+				break;
+			default:
+				assert(0);
+				break;
+			}
+			if (init_type == INIT_SEQ) {
+				if( FIAL_seq_in(val->seq, &tmp) < 0) {
+					return -1;
+				}
+			} else {
+				if(FIAL_set_symbol(val->map, iter->sym,
+						   &tmp, env) < 0) {
+					return -1;
+				}
+			}
+			break;
+		case AST_INIT_MOVE_ID:
+			if (init_type == INIT_SEQ) {
+				res = get_ref_from_sym_block_stack(&tmp, iter->sym,
+								   env->block_stack);
+				if(res != 0) {
+					return -3;
+				}
+				if(FIAL_seq_in(val->seq, tmp.ref) < 0) {
+					return -1;
+				}
+			} else {
+				res = get_ref_from_sym_block_stack
+					(&tmp, iter->left->sym, env->block_stack);
+				if(res != 0) {
+					return -3;
+				}
+				if(FIAL_set_symbol(val->map, iter->sym,
+						   tmp.ref, env) < 0) {
+					return -1;
+				}
+			}
+			*tmp.ref = none;
+			break;
+		case AST_INIT_COPY_ID:
+			if (init_type == INIT_SEQ) {
+				res = get_ref_from_sym_block_stack
+					(&tmp, iter->sym, env->block_stack);
+				if (res != 0) {
+					return -3;
+				}
+				tmp2 = none;
+				if (FIAL_copy_value(&tmp2, tmp.ref, env->interp) < 0) {
+					return -1;
+				}
+				if (FIAL_seq_in(val->seq, &tmp2) < 0) {
+					FIAL_clear_value(&tmp2, env->interp);
+					return -1;
+				}
+			} else {
+				res = get_ref_from_sym_block_stack
+					(&tmp, iter->left->sym, env->block_stack);
+				if (res != 0) {
+					return -3;
+				}
+				tmp2 = none;
+				if (FIAL_copy_value(&tmp2, tmp.ref, env->interp) < 0) {
+					return -1;
+				}
+				if (FIAL_set_symbol(val->map, iter->sym,
+						    &tmp2, env)  < 0) {
+					FIAL_clear_value(&tmp2, env->interp);
+					return -1;
+				}
+			}
+			break;
+		case AST_INIT_MOVE_ACS:
+			res = get_ref_from_map_access(&tmp, iter->left,
+						      env->block_stack);
+			if (res != 0)
+				return -4;
+			if (init_type == INIT_SEQ) {
+				if( FIAL_seq_in(val->seq, tmp.ref) < 0) {
+					return -1;
+				}
+			} else {
+				if(FIAL_set_symbol(val->map, iter->sym,
+						   tmp.ref, env) < 0) {
+					return -1;
+				}
+			}
+			*tmp.ref = none;
+			break;
+		case AST_INIT_COPY_ACS:
+			res = get_ref_from_map_access(&tmp, iter->left,
+						      env->block_stack);
+			if (res != 0)
+				return -4;
+			tmp2 = none;
+			if( FIAL_copy_value(&tmp2, tmp.ref, env->interp) < 0)
+				return -1;
+			if (init_type == INIT_SEQ) {
+				if( FIAL_seq_in(val->seq, &tmp2) < 0) {
+					FIAL_clear_value(&tmp2, env->interp);
+					return -1;
+				}
+			} else {
+				if(FIAL_set_symbol(val->map, iter->sym,
+						   &tmp2, env)<0) {
+					FIAL_clear_value(&tmp2, env->interp);
+					return -1;
+				}
+			}
+			break;
+		default:
+			assert(0);
+			break;
+		}
+	}
+	return 0;
+}
+
+static int handle_initializer  (value *val, node *init, exec_env *env )
+{
+	int res;
+	int tmp;
+	assert(val && init && env);
+	tmp = init->type;
+
+	if(tmp == AST_SEQ_INITIALIZER)
+		res = get_initialized_seq(val, init, env);
+	else
+		res = get_initialized_map(val, init, env);
+	if (res < 0) {
+		switch (res) {
+		case -1:
+			env->error.code = ERROR_BAD_ALLOC;
+			env->error.static_msg = "bad alloc when handling initializer";
+			break;
+		case -2:
+			return -1;
+			break;
+		case -3:
+			env->error.code = ERROR_UNDECLARED_VAR;
+			env->error.static_msg = "unknown variable in initializer";
+			break;
+		case -4:
+			env->error.code = ERROR_INVALID_MAP_ACCESS;
+			env->error.static_msg = "unable to access map";
+			break;
+		}
+		FIAL_set_error(env);
+	}
+	return res;
+}
+
 static inline int assign_variable(node *stmt, exec_env *env)
 {
-	int tmp;
-	value val;
-	eval_expression(&val, stmt->left, env);
+	int tmp, new_val;
+	value val, var_val, Fv, *set_me;
+	struct FIAL_ast_node *iter;
 
-	if((tmp = set_env_symbol (env, stmt->sym, &val)) < 0) {
+	if((tmp = stmt->right->type) == AST_SEQ_INITIALIZER ||
+	   tmp == AST_MAP_INITIALIZER) {
+		if( handle_initializer(&val, stmt->right, env) < 0) {
+			return -1;
+		}
+	} else 	if (eval_expression(&val, stmt->right, env) < 0) {
+		return -1;
+	}
+	if(!stmt->left) {
+		if((tmp = set_env_symbol (env, stmt->sym, &val)) < 0) {
+			env->error.code = ERROR_UNDECLARED_VAR;
+			env->error.line = stmt->loc.line;
+			env->error.col  = stmt->loc.col;
+			env->error.file = env->lib->label;
+			env->error.static_msg = "attempt to set undeclared variable.";
+		}
+		return tmp;
+	}
 
+	assert(stmt->left);
+
+	/* see, I think I want to auto-mapify.  I feel like, in
+	   general, I don't want to generate errors in the
+	   interpreter, if there is a reasonable interpretation that
+	   enables the program to continue executing.  This is in
+	   contrast to my take on the libraries, where generally I
+	   treat everything irregular as an error.
+
+	   For now I will simply trigger an error, since that is
+	   easiest to implement, and I have a lot of stuff to do, and
+	   I don't want to get bogged down.
+
+	   Changing later will be simple, and all the code that
+	   detects whether or not the value is currently a map, has to
+	   be in place in any case.
+
+	*/
+	if((tmp = lookup_symbol_value (&var_val, stmt->left->sym, env)) != 0) {
 		env->error.code = ERROR_UNDECLARED_VAR;
 		env->error.line = stmt->loc.line;
 		env->error.col  = stmt->loc.col;
 		env->error.file = env->lib->label;
 		env->error.static_msg = "attempt to set undeclared variable.";
+
+		return tmp;
 	}
 
-	return tmp;
+	iter = stmt->left->right;
+	set_me = &var_val;
+	new_val = 0;
+
+	while(iter->right) {
+		if(FIAL_lookup_symbol(&Fv, set_me->map, iter->sym) != 0) {
+			env->error.code = ERROR_INVALID_MAP_ACCESS;
+			env->error.line = stmt->loc.line;
+			env->error.col  = stmt->loc.col;
+			env->error.file = env->lib->label;
+			env->error.static_msg = "attempt to set symbol on "
+				"nonexistent map entry";
+			return -1;
+		}
+		set_me =  &Fv;
+		if(set_me->type != VALUE_MAP) {
+			env->error.code = ERROR_INVALID_MAP_ACCESS;
+			env->error.line = stmt->loc.line;
+			env->error.col  = stmt->loc.col;
+			env->error.file = env->lib->label;
+			env->error.static_msg = "attempt to set symbol on "
+				"something that is not a map.";
+			return -1;
+		}
+		iter = iter->right;
+	};
+	assert(iter->right == NULL);
+	assert(set_me->type == VALUE_MAP);
+
+	FIAL_set_symbol(set_me->map, iter->sym, &val, env);
+
+	return 0;
 }
 
 static inline int push_block (exec_env *env, node *block_node)
 {
-	block *b = FIAL_ALLOC(sizeof(block));
+	block *b = malloc(sizeof(block));
 
 	if(!b)
 		return -1;
@@ -544,77 +1075,129 @@ static inline int execute_if (node *stmt, exec_env *env)
 	return 1;
 }
 
-static inline int get_ref_from_sym_value_table(value *ref, symbol sym,
-					       struct FIAL_symbol_map *map)
-{
-	struct FIAL_symbol_map_entry *iter;
-	for(iter = map->first; iter != NULL; iter = iter->next) {
-		if(iter->sym == sym) {
-			memset(ref, 0, sizeof(*ref));
-			ref->type = VALUE_REF;
-			if(iter->val.type == VALUE_REF)
-			    ref->ref = iter->val.ref;
-			else
-			    ref->ref = &iter->val;
-			return 0;
-		}
-	}
-	return 1;
-}
-
-static inline int get_ref_from_sym_block_stack (value *ref, symbol sym, block *bs)
-{
-	block *iter;
-	for(iter = bs; iter != NULL; iter= iter->next) {
-		if(iter->values) {
-			int result =
-				get_ref_from_sym_value_table(ref, sym,
-							 iter->values);
-			if (result == 0) {
-				return 0;
-			}
-		}
-	}
-
-	memset(ref, 0, sizeof(*ref));
-	return 1;
-}
 
 /*
 returns
 
 -1 for : allocation
 -2 for bad lookup
+-3 for bad expression,
+-4 for bad initializer.
 
-ERROR("unbound identifier in arglist");
+The args will be left on the incompleted block in the case of error.
+Not sure what else to do about this, but it is a little unfortunate,
+but it is currently always possible to tell which was the last value
+pushed onto the block, so the one which caused the error would
+necessarily be the one after that.
 
 */
 
-static inline int insert_args (node *arglist_to, node *arglist_from,
-			       struct FIAL_symbol_map *map_to, block *block_stack,
-			       exec_env *env)
+static int insert_args (node *arglist_to, node *arglist_from,
+			struct FIAL_symbol_map *map_to, block *block_stack,
+			exec_env *env)
 {
+
 	node *iter1, *iter2;
-	value val;
-	memset(&val, 0, sizeof(val));
+	value val, ref, none;
+	int res;
+	memset(&none, 0, sizeof(val));
 
 	iter1 = arglist_to;
-	iter2 = arglist_from;
+	iter2 = arglist_from->left;
 
 	for(; iter1 != NULL; iter1=iter1->right) {
 		if(iter2) {
-			value ref;
-			int res = get_ref_from_sym_block_stack(&ref, iter2->sym,
-							       block_stack);
-			if(res == 1) {
-				return -2;
+			res = 0;
+			val = ref = none;
+			switch(iter2->type) {
+			case AST_ARGLIST_ID:
+				res = get_ref_from_sym_block_stack
+					(&ref, iter2->sym, block_stack);
+				if(res == 1) {
+					return -2;
+				}
+				res = set_symbol(map_to, iter1->sym, &ref, env);
+				if(res == -1) {
+					return -1;
+				}
+				break;
+			case AST_ARGLIST_EXPR:
+				assert(iter2->type == AST_ARGLIST_EXPR);
+
+				if(eval_expression(&val, iter2->left,env) < 0) {
+					return -3;
+				}
+				res = set_symbol(map_to, iter1->sym, &val, env);
+				if (res == -1)
+					return -1;
+				break;
+			case AST_ARGLIST_INIT:
+				if(handle_initializer(&val, iter2->left,
+						      env) < 0) {
+					return -4;
+				}
+				res = set_symbol(map_to, iter1->sym, &val, env);
+				if(res == -1)
+					return -1;
+				break;
+			case AST_ARGLIST_MOVE_ID:
+				res = get_ref_from_sym_block_stack(&ref,
+				          iter2->sym, block_stack);
+				if(res == 1) {
+					return -2;
+				}
+				val = *ref.ref;
+				res = set_symbol(map_to, iter1->sym, &val, env);
+				if(res == -1) {
+					return -1;
+				}
+				memset(ref.ref, 0, sizeof(*ref.ref));
+				break;
+			case AST_ARGLIST_COPY_ID:
+				res = get_ref_from_sym_block_stack(&ref,
+				          iter2->sym, block_stack);
+				if(res == 1) {
+					return -2;
+				}
+				FIAL_copy_value (&val, ref.ref, env->interp);
+				res = set_symbol(map_to, iter1->sym, &val, env);
+				if(res == -1) {
+					FIAL_clear_value(&val, env->interp);
+					return -1;
+				}
+				break;
+			case AST_ARGLIST_MOVE_ACS:
+				assert(iter2->left);
+				res = get_ref_from_map_access(&ref, iter2->left,
+							      env->block_stack);
+				if (res != 0)
+					return -2;
+				res = set_symbol(map_to, iter1->sym,
+						 ref.ref, env);
+				if(res < 0)
+					return -1;
+				*ref.ref = none;
+				break;
+			case AST_ARGLIST_COPY_ACS:
+				assert(iter2->left);
+				res = get_ref_from_map_access(&ref, iter2->left,
+							      env->block_stack);
+				if(res != 0)
+					return -2;
+				if( FIAL_copy_value(&val, ref.ref, env->interp) < 0)
+					return -1;
+				if(set_symbol(map_to, iter1->sym, &val, env)
+				   < 0) {
+					return -1;
+				}
+				break;
+			default:
+				assert(0);
 			}
-			res = set_symbol(map_to, iter1->sym, &ref, env);
-			if(res == -1) {
-				return -1;
-			}
+
 			iter2 = iter2->right;
 		} else {
+			assert(!iter2);
 			int res = set_symbol(map_to, iter1->sym, &val, env);
 			if(res == -1) {
 				return -1;
@@ -623,6 +1206,10 @@ static inline int insert_args (node *arglist_to, node *arglist_from,
 	}
 	return 0;
 }
+
+/*
+ * This cannot possibly be the right place for the pop block function.
+ */
 
 static inline int pop_block (exec_env *env)
 {
@@ -637,9 +1224,7 @@ static inline int pop_block (exec_env *env)
 
 //	FIAL_destroy_symbol_map(b->values, env->interp);
 
-
 	if(b->values) {
-
 		struct FIAL_symbol_map_entry *iter = NULL, *tmp = NULL;
 		struct FIAL_finalizer *fin       = NULL;
 		struct FIAL_finalizer *finishers = env->interp->types.finalizers;
@@ -678,7 +1263,7 @@ int perform_call_on_node (node *proc, node *arglist,
 {
 	int res;
 	block *last_block = env->block_stack;
-	block *b = FIAL_ALLOC(sizeof(block));
+	block *b = malloc(sizeof(block));
 
 	if(!b) {
 
@@ -703,7 +1288,7 @@ int perform_call_on_node (node *proc, node *arglist,
 			env->error.code = ERROR_BAD_ALLOC;
 			env->error.static_msg = "couldn't create value table "
 				                "for new block in proc call";
-			E_SET_ERROR(*env);
+			FIAL_set_error(env);
 			return -1;
 		}
 		if((res = insert_args(proc->left, arglist,
@@ -713,14 +1298,17 @@ int perform_call_on_node (node *proc, node *arglist,
 				env->error.code = ERROR_BAD_ALLOC;
 				env->error.static_msg = "bad alloc setting "
 					"arguments";
-				E_SET_ERROR(*env);
+				FIAL_set_error(env);
 				return -1;
-			} else {
+			} else if(res == -2) {
 				assert(res == -2);
 				env->error.code = ERROR_UNDECLARED_VAR;
 				env->error.static_msg = "undeclared variable "
 							"in arglist";
-				E_SET_ERROR(*env);
+				FIAL_set_error(env);
+				return -1;
+			} else {
+				assert(res == -3 || res == -4);
 				return -1;
 			}
 		}
@@ -732,51 +1320,188 @@ int perform_call_on_node (node *proc, node *arglist,
 	return 0;
 }
 
+static inline void free_arg_strip (int count,
+				   struct FIAL_value *arg_strip,
+				   struct FIAL_interpreter *interp)
+{
+	int i;
+
+	if(arg_strip == NULL)
+		return;
+	for(i = 0; i < count; i++)
+		FIAL_clear_value(arg_strip + i, interp);
+	free(arg_strip);
+}
+
 /* returns -1 on allocation error.
    return  -2 if a reference could not be found to match an argument.
-*/
+           -3 on bad invalid expression.
+	   -4 for invalid initializer
 
-static inline int generate_external_arglist (int *argc, struct FIAL_value ***argvp,
-					     node *arglist, exec_env *env)
+   this function currently frees all memory on error, which is not
+   good for error reporting, since there will not be a record of which
+   argument caused the error.
+
+   This will become a problem when robust error reporting becomes
+   standard, as it stands now, it is not much worse than what is the
+   current norm for errors.
+ */
+
+static inline int generate_external_arglist (int *argc,
+					     struct FIAL_value ***argvp,
+					     node *arglist,
+					     struct FIAL_value **arguments,
+					     exec_env *env)
 {
-
 	/*FIXME: make it so the parser counts how many arguments there
 	 * are.*/
-	int count;
+	int result = 0;
+	int count = 0;
 	node *iter;
-	int i;
+	int i, res;
 	int tmp;
+	value ref;
 
+	value *arg_strip = NULL;
 	(*argvp) = NULL;
 
+/*
 	for(count = 0, iter = arglist; iter != NULL; iter = iter->right)
 		count++;
-	*argc = count;
+		*argc = count; */
+
+	if(arglist) {
+		assert(arglist->n);
+		*argc = count = arglist->n;
+		arglist = arglist->left;
+		arg_strip = calloc(sizeof(*arg_strip), count);
+		*arguments = arg_strip;
+	}
 
 	if(count) {
-		(*argvp) = ALLOC(sizeof(struct FIAL_value *) * count);
+		(*argvp) = malloc(sizeof(struct FIAL_value *) * count);
 	/* no need to initialize.... */
 		if(!(*argvp)) {
-			return -1;
+			result = -1;
+			goto error;
 		}
 		for(i = 0, iter = arglist; i < count; i++, iter = iter->right) {
 			value val;
 			memset(&val, 0, sizeof(val));
 			assert(iter);
-			assert(iter->sym);
-			tmp = get_ref_from_sym_block_stack(&val, iter->sym,
-						     env->block_stack);
-			if(tmp == 1) {
-				FREE(*argvp);
-				*argvp = NULL;
-				return -2;
+
+			switch(iter->type) {
+			case  AST_ARGLIST_ID:
+				assert(iter->sym);
+				tmp = get_ref_from_sym_block_stack(&val,
+					iter->sym, env->block_stack);
+				if(tmp == 1) {
+					result = -2;
+					goto error;
+				}
+				assert(val.type == VALUE_REF);
+				(*argvp)[i] = val.ref;
+				break;
+			case AST_ARGLIST_EXPR:
+				assert(iter->type == AST_ARGLIST_EXPR);
+				assert(arg_strip);
+				tmp = eval_expression(arg_strip + i, iter->left,
+						      env);
+				if(tmp < 0) {
+					result = -3;
+					goto error;
+				}
+				(*argvp)[i] = arg_strip + i;
+				break;
+			case AST_ARGLIST_INIT:
+				assert(iter->type == AST_ARGLIST_INIT);
+				assert(arg_strip);
+				tmp = handle_initializer(arg_strip + i,
+							 iter->left,  env);
+				if(tmp < 0) {
+					result = -4;
+					goto error;
+				}
+				(*argvp)[i] = arg_strip + i;
+				break;
+			case AST_ARGLIST_MOVE_ID:
+				assert(arg_strip);
+				res = get_ref_from_sym_block_stack(&ref,
+				          iter->sym, env->block_stack);
+				if(res == 1) {
+					result = -2;
+					goto error;
+				}
+				FIAL_move_value(arg_strip + i, ref.ref,
+						env->interp);
+				(*argvp)[i] = arg_strip + i;
+				break;
+			case AST_ARGLIST_COPY_ID:
+				assert(arg_strip);
+
+				res = get_ref_from_sym_block_stack(&ref,
+				          iter->sym, env->block_stack);
+				if(res == 1) {
+					result =  -2;
+					goto error;
+				}
+				if(FIAL_copy_value(arg_strip + i, ref.ref,
+						   env->interp) < 0) {
+					result = -1;
+					goto error;
+				}
+				(*argvp)[i] = arg_strip + i;
+				break;
+			case AST_ARGLIST_MOVE_ACS:
+				assert(iter->left);
+				assert(arg_strip);
+
+				res = get_ref_from_map_access(&ref,
+				          iter->left, env->block_stack);
+				if(res == 1) {
+					result =  -2;
+					goto error;
+				}
+				FIAL_move_value(arg_strip + i, ref.ref,
+						env->interp);
+				(*argvp)[i] = arg_strip + i;
+				break;
+			case AST_ARGLIST_COPY_ACS:
+				assert(iter->left);
+				assert(arg_strip);
+
+				res = get_ref_from_map_access(&ref,
+				          iter->left, env->block_stack);
+				if(res == 1) {
+					result =  -2;
+					goto error;
+				}
+				if(FIAL_copy_value(arg_strip + i, ref.ref,
+						   env->interp) < 0) {
+					result = -1;
+					goto error;
+				}
+				(*argvp)[i] = arg_strip + i;
+				break;
+			default:
+				assert(0);
+				break;
 			}
-			assert(val.type == VALUE_REF);
-			(*argvp)[i] = val.ref;
 		}
 		return 0;
 	}
 	return 1;  /* no args... not sure if this matters.  */
+
+error:
+	free(*argvp);
+	/* freeing is fine, since expressable values do not have
+	 * finilizers. */
+	free_arg_strip(count, arg_strip, env->interp );
+
+	*argvp = NULL;
+	*arguments = NULL;
+
+	return result;
 }
 
 /* ok this decision logic has to change, this gets split into 3
@@ -798,34 +1523,45 @@ static inline int interp_call_on_func (struct FIAL_c_func     *func,
 				       node                *arglist,
 				       exec_env                *env)
 {
-	int argc;
+	int argc = 0;
 	struct FIAL_value **argv = NULL;
+	struct FIAL_value *arguments;
 	int err;
 	int ret;
 
-	err = generate_external_arglist(&argc, &argv, arglist, env);
+	err = generate_external_arglist(&argc, &argv, arglist,
+					&arguments, env);
 	if(err == -1) {
-		FREE(argv);
 		env->error.code = ERROR_BAD_ALLOC;
 		env->error.static_msg = "couldn't allocate space for "
 					"external_arglist";
-		E_SET_ERROR(*env);
-		return -1;
+		FIAL_set_error(env);
+		ret =  -1;
+		goto cleanup;
 	}
 	if(err == -2) {
-		FREE(argv);
 		env->error.code = ERROR_UNDECLARED_VAR;
 		env->error.static_msg = "unbound variable when "
 					"generating argumennts";
-		E_SET_ERROR(*env);
-		return -2;
+		FIAL_set_error(env);
+		ret =  -2;
+		goto cleanup;
+	}
+	if (err < 0) {
+		assert(err == -3 || err == -4);
+		ret = err;
+		goto cleanup;
 	}
 
 	assert(func);
 	assert(func->func);
 	ret = func->func(argc, argv, env,func->ptr);
 
-	FREE(argv);
+cleanup:
+	free(argv);
+	/* freeing is ok, since all arguments are the results of
+	 * expressions */
+	free_arg_strip(argc, arguments, env->interp);
 
 	return ret;
 }
@@ -921,79 +1657,6 @@ static inline int execute_call_B (node *stmt, exec_env *env)
 	assert(0);
 	return -1;
 }
-
-/*
-static inline int execute_call_C (node *stmt, exec_env *env)
-{
-	value proc;
-	value name;
-
-	eval_expression(&name, stmt->left, env);
-
-	if(name.type != VALUE_SYMBOL) {
-		ERROR("Attempt to call a proc using an expression which does "
-		      "not evaluate to a symbol.");
-		return -1;
-	}
-
-	int res = lookup_symbol(&proc, env->lib->procs, name.sym);
-	if(res == 1) {
-		ERROR("attempt to call unknown proc.");
-		return -1;
-	}
-	assert(proc.type = VALUE_PROC);
-
-	return interp_call_on_proc(proc.proc, stmt->right, NULL, env);
-}
-
-static inline int execute_call_D (node *stmt, exec_env *env)
-{
-	value proc;
-	value lib;
-	value name;
-	int res = 1;
-
-	eval_expression(&name, stmt->left->left, env);
-	if(name.type != VALUE_SYMBOL) {
-		env->error.code =
-		ERROR("Attempt to call a proc using an expression which does "
-		      "not evaluate to a symbol.");
-		return -1;
-	}
-	if(env->interp->omnis) {
-		res = lookup_symbol(&lib, env->interp->omnis, name.sym);
-	}
-	if(res == 1) {
-		if(!env->lib->libs) {
-			ERROR("attempt to call a proc in a nonexistent lib.");
-			return -1;
-		}
-		res = lookup_symbol(&lib, env->lib->libs, name.sym);
-	}
-	if(res == 1) {
-		ERROR("attempt to access undeclared lib.");
-		return -1;
-	}
-	assert(lib.type = VALUE_LIB);
-
-	eval_expression(&name, stmt->left->right, env);
-	if(name.type != VALUE_SYMBOL) {
-		ERROR("Attempt to call a proc using an expression which does "
-		      "not evaluate to a symbol.");
-		return -1;
-	}
-
-	res = lookup_symbol(&proc, ((library *)lib.ptr)->procs,
-				name.sym);
-	if(res == 1) {
-		ERROR("attempt to call unknown proc.");
-		return -1;
-	}
-	assert(proc.type = VALUE_PROC);
-
-	return interp_call_on_proc(proc.proc, stmt->right, lib.ptr, env);
-}
-*/
 
 #define ENTRY_FREE(x) free(x)
 #define MAP_FREE(x)   free(x)
@@ -1107,20 +1770,6 @@ int FIAL_interpret (struct FIAL_exec_env *env)
 			break;
 		case AST_CALL_B:
 			ER(execute_call_B(stmt, env));
-			break;
-
-/* I have taken these out of the language spec for now, I might put
- * them back in later, but I haven't really used them at all.  They
- * might prove useful later though.  I am just asserting, they aren't
- * produced by the parser anymore.  */
-
-		case AST_CALL_C:
-//			ER(execute_call_C(stmt, env));
-			assert(0);
-			break;
-		case AST_CALL_D:
-//			ER(execute_call_D(stmt, env));
-			assert(0);
 			break;
 		case AST_BREAK:
 			ER(execute_break(stmt, env));

@@ -1,24 +1,6 @@
 TODO
 
-I have found my way into a certain ennui when dealing with this stuff,
-but I am almost to a good place with it, so I just have to keep
-moving.  Once concurrency kicks in, (a) everything will be harder, but
-(b) everything will be a lot more obviously useful.  As stands now,
-you are programming with one hand tied behind your back, with no real
-gains from the sacrifices made.
-
 -----------
-
-ok, now that I have a scripting language, now what?  Should I do
-something with it using threads?  That would probably be a logical
-test of it, but I don't know that I am really worried about that not
-working.
-
-I am definitely at the point where I want to start using it for
-something.  The comic book viewer is ok, but it's more of a side
-project.  Though it wouldn't hurt to fix it up I guess.
-
-------------
 
 FIXME:
 
@@ -26,123 +8,51 @@ FIXME:
 
 ------------
 
+Done, but maybe Further Test
+
+(*) move/copy operators for function calls.  Also allows expressions.
+(*) initializers for seq, maps (not the easiest thing ever, but not
+    too tough) -- ok, maybe a bit more testing, but I think this is
+    done.
+(*) allow assignment inside variable declarations.
+(*) initializers for proc arguments
+
+
 TODO:
 
-(*)(*) write some samples.  -- working on something right now, just basic
-geometry type stuff.
-(*) write up some documentation.  -- put it on the github wiki, this
-will have to be done at some point.  Once I get a "respectable" level,
-I will go ahead and call it done enough, and then just keep at it in
-the background.
+(*) move/copy operators for assignments?  Could be pretty sweet!  But,
+    as it is, I have omni.move and omni.copy, so no real need for
+    them, except it would be useful somewhat in assignments in
+    declarations.  But, I'm still kind of in my "minimilism" phase,
+    and this just seems like unnecessary syntax.
+
+    For the most part, this influx of operators has either provided
+    needed functionality, or been a lot more useful than merely using
+    an assignment instead of a proc call.  Nesting maps, in particular,
+    was an unduly painful process before.
+
+---
+
+(*) consider switching away from the dynamic scoping.  But, I don't
+    want real global variables, that would be confusing, since people
+    would think they could use them in the load phase and have it
+    carry over to the run phase.  An alternative would be to have
+    "both," and have "dyn" as an alternative to "var".  But, I don't
+    currently have a good mechanism for making this work.  So, it is
+    something to consider when I change my data structures around.
+(*) Write boost::geometry stuff.  I plan on using this stuff in my
+    next project anyway.  Also, stop trying to switch to vim.  It's
+    not going to work.  I will keep using it for little things I
+    suppose, I want to be able to use it at a respectable level.  But
+    I have to be able to churn out text, and I just can't do that
+    nearly as well with anything else right now.
+(*) write some samples. -- ok, once I can clip a polygon, I'm good to
+    go.
+(*) write up some documentation.  -- done a fair bit of this, enough
+    to call it started anyway.  I haven't gotten to types, or to maps
+    and sequences, or to the C api.
 
 ------------------------------
-
-There follows a somewhat lengthy discussion, but the immediate object
-is establishing load states / run states, and making the necessary
-changes to the loaders, the global omni, the load function.
-
-D (*) ability to set interpreter to "run"
-D (*) autorun "load" functions in load mode.  Note, this is not done
-      from the C api, only from FIAL.  Not sure that is how this is
-      always going to work, but more control from C is not necessarily
-      a bad thing.
-
-(*) Make needed changes to things :
-D   (*) FIAL_get_symbol(interp*) should not add symbol if interpreter is
-    	set to run and symbol isn't found.
-D   (*) load should only work in load state.
-D   (*) register types only works in load state.
-D   (*) global set should only work in load mode
-    (*) going to have to double check this stuff also, not sure I know
-        off the top of my head what everything does to an interpreter.
-
---------------------
-
-Ok, there are a number of related steps here --
-
-(*) add a FIAL proc object, in order to create callbacks, think about
-    whether or not this can be integrated with the improved top level
-    interface.  The structure is made, the interface is somewhat
-    improved.
-
-(*) improved top level interface.  Also, a check arg function for
-    writing C funcs.
-
-(*) set up loading/running state stuff.  The interpreter should only
-    be changed when it is in a loading stage, afterwords it should be
-    read only.  Also, I took out the auto running of "load", since it
-    isn't needed yet, since the read only stuff isn't put in yet.
-
-    I need basically two states: "loading" and "running".  Then I
-    probably want to fix up my load routines, so that they
-    automatically call the "load" method of FIAL structures.
-
-    Then, I want to make it so "globals" can only be set during a
-    load.  Also, adding symbols in run state should go into an
-    auxiliary symbol table on the environment.  Interpreters should
-    start in load state when made via functions.
-
-    At some point I want to create a function that returns FILE *'s
-    from the strings in load calls.  But, that is not needed yet, nor
-    will it be too difficult.
-
-(*) Concurrency.  I am currently thinking I will just use SDL threads,
-    assuming they do what I need for now api wise.  Obviously, SDL is
-    not a good dependancy for threading in the general, but porting
-    would probably not be too hard later.  The only thing is that I am
-    wondering if using pthreads from the onset would be good enough on
-    windows, in which case I could have this solved once and for all
-    just by using pthreads.  There is pthreads-win32 or something like
-    that but I don't know how to determine if it works well enough on
-    windows to be worth it.
-
-    Both pthreads and sdl_threads seem to be reasonable options,
-    though I think I can overthink this point -- I will start with SDL
-    threads simply because it has a simpler API, that can be
-    demonstrated to be cross platform.  Also, since it has the same
-    license, if needs be, I can rip out SDL threads from the library
-    and use it that way.
-
-    Besides, the plan all along was to use SDL threads, using pthreads
-    is just chasing ghosts at this point, I will consider a different
-    api when the need for it arises.
-
-----------
-
-These are related, but there relationships are a little hard to
-describe.
-
-The top level interface can use structures which represent FIAL procs,
-these could be stored in C as callbacks from FIAL, or they could
-simply be cached lookups to improve performance.
-
-Concurrency requires interpreter states, so that the interpreter is
-set to read only, or load, etc.  It also needs a data structure that
-can represent a FIAL proc, otherwise FIAL procs for creating threads
-can't be made.
-
-Setting up the FIAL interpreter states would allow me to create
-init/create functions which set the appropriate values.
-
-----------------------------------------
-
-Improved standard data structures:
-
-(*) I am going to have to add a table of copy procs as well,
-    otherwise, containers won't be able to copy anything.  This means
-    containers cannot provide a mechanism to copy themselves.  This
-    will also clean up container usage considerably, as taking an
-    element out, copying it, and putting it back in is cumbersome.
-
-(*) figure out what I am doing with arrays/stacks/fifos/deques etc,
-    and implement it.  Stacks I think are the preferred way, but fifos
-    are also obviously convenient.  a way to convert this stuff would
-    be nice, having them all really be the same internally would be
-    even better.
-
----------
-
-----------------------------------------
 
 (*)  get "real" data structures for interpreter --
 
@@ -193,39 +103,13 @@ C API redux
 
 --------------------
 
-(*) ok, really, the distinction between a FIAL proc and a C function
-exists at the library level.  So, to some extent, what I should do, is
-rewrite my library structure to be a typed union.
-
-BUT --
-
-There is no need to ever attach a library to an execution environment.
-SO -- my current FIAL_library structure is fine, I just have to make C
-library structure for C libraries, and a tagged union for the
-interpreter's lib container.  Then, I just have to resolve what type
-of library it is on lookup, essentially whenever a library routine is
-called -- which is exactly when I would have to do it now that I have
-the procedures as tagged unions.
-
-SO -- keep FIAL_library essentially as it is (only put the FIAL
-procedure structure in it directly), rewrite the C function structure,
-Change the interpreter.libs to be a container of tagged unions of FIAL
-and C libraries, and then change the library procedure lookup
-functions to check the type of library, instead of the type of
-procedure.
-
-C functions putting their own library on the exec_env for the purpose
-of passing it around was never the intended purpose of this, and since
-that is the only thing that is effected, nothing of value is lost.
-
-so......
---------------------
-
 Errors:
 
 OK, this is more or less done now.  Obviously, there is room for
 improvement, but it is now generally working, and it's fairly obvious
 that this set up is going to work. If anything, it's overkill.
+
+Finish this up, I still have stray assertions.
 
 --------------------
 
@@ -261,22 +145,3 @@ qwere fial procs.
 library and proc are fine for the purpose of a derez proc.
 
 --------------------
-
-----------------------------------------
-
-IDEAS:
-
---------------------
-
-(*) another idea ist he ability to "mount" a symbol map, so that its
-values can be referenced as variables.  Not sure how useful this would
-be, but combined with dynamic typing, who knows?  But this be hard to
-compile well....
-
-(*) I think reasonably easy to implement at the interpreted stage
-would be a "yield" or something like that, that basically just exits
-back to the embedding application, leaving the execution environment
-in a yielded state.  This could then be restarted by the application.
-Since arguments are passed in by reference, it is would be easy to do
-real work in the procedure, and then yield when a result is reached,
-letting the pass by reference idea do its work.

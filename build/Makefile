@@ -5,8 +5,9 @@ CC=clang
 AR_OBJS=lex.yy.o parser.tab.o interp.o basic_types.o loader.o ast.o omni.o \
 	text_buf.o api.o sequence.o
 OBJS=main.o
-CFLAGS=-I${INCLUDEDIR} -I. -Wall -g -Werror-implicit-function-declaration -Wno-unused-value
-BISONFLAGS=-d
+CFLAGS=-I${INCLUDEDIR} -I. -Wall -Wextra -g -Werror-implicit-function-declaration -Wno-unused-value
+YACC="./yacc.exe"
+YACCFLAGS=-b parser -d -L
 LDFLAGS=-L.
 LDLIBS=-lfial
 EXECUTABLE=FIAL.exe
@@ -31,7 +32,7 @@ package: ${EXECUTABLE} ${ARCHIVE}
 
 parser.tab.h: parser.tab.c
 parser.tab.c: ${SOURCEDIR}parser.y
-	bison ${BISONFLAGS} $<
+	${YACC} ${YACCFLAGS} $<
 lex.yy.c: ${SOURCEDIR}lexer.l
 	flex --header-file="flex_header.h" $<
 lex.yy.o: lex.yy.c parser.tab.h
