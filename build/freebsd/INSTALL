@@ -21,19 +21,32 @@ This can be accomplished with the following configure command to byacc's
 configure script:
 
 ---
-./configure  --enable-btyacc 
+
+sh configure  --enable-btyacc --program-suffix=_2014_ted
+gmake install && gmake clean
+
 ---
 
-There are also build dependencies on python, and flex.  As far as as I know, the
-ones on a typical BSD insall work -- they didn't present any difficulties.  
+Note, this is just a build dependancy, it can be removed after FIAL is built. 
+ In the alternative, the install could be omitted, with the pathname of the 
+byacc executable given in FIAL Makefile.
+
+There are also build dependencies on python, and flex.  As far as as I know, 
+the ones on a typical BSD install work -- they didn't present any difficulties. 
 
 --------------------
+
 FIAL Install
+
 --------------------
 
 FIAL uses a gnu makefile for installation.  Just edit the YACC variable to match
 the mangled name you passed to the configure script above.  
 
-Relevant targets are "all" (default), "install", "uninstall", and "clean"
+Relevant targets are "all" (default), "install", and "clean".  There is no 
+uninstall option, since I don't feel comfortable writing that without wiping 
+anything by mistake.  To uninstall, simply delete the directory that contains 
+the headers, the executable from the bin directory (default name is FIAL), 
+and the library from the lib directory (defaults to libFIAL.a).
 
 

@@ -8,17 +8,27 @@ CC            = clang
 YACC          = byacc_2014_ted
 LEX           = flex
 PYTHON        = python 
-INSTALL       = install
 
-PREFIX        = /usr/
+INSTALL       = install
+INSTALL_PROG  = ${INSTALL}
+INSTALL_LIB   = ${INSTALL} -m 644
+INSTALL_INCDIR= ${INSTALL} -d
+INSTALL_INC   = ${INSTALL} -m 644
+
+# installation directories, INCDIR is for includes 
+
+PREFIX        = /usr/local/
+LIBDIR        = ${PREFIX}lib/
+BINDIR        = ${PREFIX}bin/
+INCDIR        = ${PREFIX}include/FIAL/
 
 ROOTDIR       = ../../
 SOURCEDIR     = ${ROOTDIR}src/
 PACKAGE_DIR   = ./package
 INCLUDEDIR    = ${SOURCEDIR}
 
-CFLAGS        = -Wall -Wextra -g -O0                  \
-                -Werror-implicit-function-declaration \
+CFLAGS        = -Wall -Wextra -g -O0                   \
+                -Werror-implicit-function-declaration  \
                 -Wno-unused-value -Wno-unused-parameter\
 
 INCLUDE_FLAGS = -I${INCLUDEDIR} -I.
@@ -72,7 +82,19 @@ ${ROOTDIR}scripts/libtest/${EXECUTABLE}: ${EXECUTABLE}
 	cp -f ${EXECUTABLE} ${ROOTDIR}scripts/libtest/${EXECUTABLE}
 
 install:
-		
+	${INSTALL_PROG} ${EXECUTABLE} ${BINDIR}
+	${INSTALL_LIB} ${ARCHIVE} ${LIBDIR}
+	${INSTALL_INCDIR} ${INCDIR}
+	${INSTALL_INC} *.h ${INCDIR}
+	${INSTALL_INC} ${SOURCEDIR}*.h ${INCDIR}
+	
+# I don't know how to set this properly -- better to not have it than have one
+# that wipes someones system.   
+
+#uninstall:
+#	rm -f ${BINDIR}${EXECUTABLE}
+#	rm -f ${LIBDIR}${ARCHIVE}
+#	rm -rf ${
 
 clean:
 	rm -f ${OBJS} ${AR_OBJS}
