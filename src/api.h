@@ -53,6 +53,7 @@ int FIAL_run_strings (const char *lib_label,
 int FIAL_run_ast_node (struct FIAL_ast_node  *proc,
 		       struct FIAL_value     *args,
 		       struct FIAL_exec_env  *env);
+char *FIAL_get_str (struct FIAL_value *);
 
 /* dealing with values */
 
@@ -65,5 +66,5 @@ void FIAL_move_value (struct FIAL_value *to,
 int FIAL_copy_value (struct FIAL_value *to,
 		     struct FIAL_value *from,
 		     struct FIAL_interpreter *interp);
-
+char *FIAL_get_str(struct FIAL_value *val);
 #endif /*FIAL_API_H*/

@@ -57,6 +57,10 @@ int perform_call_on_node (struct FIAL_ast_node *proc,
 			  struct FIAL_library  *lib,
 			  struct FIAL_exec_env *env);
 void FIAL_set_error(struct FIAL_exec_env *env);
+int FIAL_access_compound_value (struct FIAL_value     *ref,
+				struct FIAL_value     *compound,
+				struct FIAL_value     *accessor);
+
 
 /*************************************************************
  *
@@ -178,15 +182,6 @@ struct FIAL_c_func {
 		     struct FIAL_exec_env *env, void *ptr);
 	void *ptr;
 };
-
-/*
- * This includes the interpreter out of convenience, since containers
- * need the interpreter to call the finalizers on them.  But -- this
- * is only really a convenience for containers, and I'm not sure how
- * often users will be writing their own containers.  It would never
- * be necessary, since it could always be included in a struct pointed
- * to by the *ptr field.
- */
 
 struct FIAL_finalizer {
 	int (*func)(struct FIAL_value *,

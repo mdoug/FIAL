@@ -264,6 +264,95 @@ static int copy_value (int argc, struct FIAL_value **argv,
 	return 0;
 }
 
+/* omni accessors -- put, take, and dupe */
+
+static int omni_put (int argc, struct FIAL_value **args,
+		     struct FIAL_exec_env *env,	void *ptr)
+
+{
+	enum {CONT = 0, ACCESSOR = 1, PUT_ME = 2};
+	struct FIAL_value ref;
+	(void) ptr;
+
+	if(argc < 3) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+			"Need 3 arguments to put value somewhere.";
+		FIAL_set_error(env);
+		return -1;
+	}
+	if(FIAL_access_compound_value(&ref, args[CONT], args[ACCESSOR]) < 0) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+			"Error in arguments to access container";
+		FIAL_set_error(env);
+		return -1;
+	}
+	assert(ref.type == VALUE_REF);
+	FIAL_move_value(ref.ref, args[PUT_ME], env->interp);
+	return 0;
+}
+
+static int omni_take (int argc, struct FIAL_value **args,
+		      struct FIAL_exec_env *env, void *ptr)
+
+{
+	enum {SET_ME, CONT, ACCESSOR};
+	struct FIAL_value ref;
+	(void) ptr;
+
+	if(argc < 3) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+			"Need 3 arguments to take value";
+		FIAL_set_error(env);
+		return -1;
+	}
+	if(FIAL_access_compound_value(&ref, args[CONT], args[ACCESSOR]) < 0) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+			"Error in arguments to access container";
+		FIAL_set_error(env);
+		return -1;
+	}
+	assert(ref.type == VALUE_REF);
+	FIAL_move_value(args[SET_ME], ref.ref, env->interp);
+	return 0;
+}
+
+static int omni_dupe (int argc, struct FIAL_value **args,
+		      struct FIAL_exec_env *env, void *ptr)
+
+{
+	enum {SET_ME, CONT, ACCESSOR};
+	struct FIAL_value ref;
+	(void) ptr;
+
+	if(argc < 3) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+			"Need 3 arguments to take value";
+		FIAL_set_error(env);
+		return -1;
+	}
+	if(FIAL_access_compound_value(&ref, args[CONT], args[ACCESSOR]) < 0) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+			"Error in arguments to access container";
+		FIAL_set_error(env);
+		return -1;
+	}
+	assert(ref.type == VALUE_REF);
+	if( FIAL_copy_value(args[SET_ME], ref.ref, env->interp) ) {
+		env->error.code = ERROR_BAD_ALLOC;
+		env->error.static_msg =
+			"Could not dupe contained  value -- bad alloc";
+		FIAL_set_error(env);
+		return -1;
+	}
+	return 0;
+}
+
 
 static int register_type (int argc, struct FIAL_value **args,
 			  struct FIAL_exec_env *env,
@@ -298,6 +387,8 @@ static int register_type (int argc, struct FIAL_value **args,
 	args[0]->n    = tmp;
 	return 0;
 }
+
+
 
 /* signals argument error if not enough errors are passed. */
 
@@ -447,9 +538,7 @@ static int map_set   (int argc, struct FIAL_value *argv[],
 		E_SET_ERROR(*env);
 		return -1;
 	}
-
 	ret =  FIAL_set_symbol(argv[0]->map, argv[1]->sym, argv[2], env);
-
 	/* ok, I am deleting the value, since I can't allow copying of
 	 * just anything here.  Not strictly necessary for all value,
 	 * but then again, they should be easy to deal with using
@@ -715,6 +804,9 @@ struct FIAL_c_func_def omni_lib[] = {
 	{"type_of"  , get_type_of ,   NULL},
 	{"const"    , get_constant,   NULL},
 	{"break"    , break_on_me,    NULL},
+	{"take"     , omni_take   ,   NULL},
+	{"put"      , omni_put    ,   NULL},
+	{"dupe"     , omni_dupe   ,   NULL},
 	{NULL       , NULL        ,   NULL}
 };
 

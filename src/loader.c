@@ -15,6 +15,7 @@
 /*must generate this file with flex on lexer.l.  Maybe should define
  * the name by the build system.  */
 
+#define YY_NO_UNISTD_H
 #include "flex_header.h"
 
 typedef struct FIAL_interpreter       interpreter;
@@ -98,8 +99,10 @@ static inline int add_lib_from_ast(interpreter             *interp,
 			error->static_msg = "two procs with same name.";
 			return -1;
 		} else  {
+			entry *ent;
+
 			assert(tmp == 1);
-			entry *ent = ALLOC(sizeof(*ent));
+			ent = ALLOC(sizeof(*ent));
 			if(!ent) {
 				error->code = ERROR_BAD_ALLOC;
 				error->static_msg = "couldn't allocate for proc "
@@ -144,20 +147,17 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 
 {
 	extern struct FIAL_error_info *FIAL_parser_error_info;
-
 	extern struct FIAL_ltype yylloc;
 	extern int FIAL_parser_line_no;
 	extern int FIAL_parser_col_no;
 
 	union FIAL_lib_entry *lib_ent = NULL;
-
 	FILE* input_file = NULL;
 	int tmp;
-
 	int yyparse(void);
+	YY_BUFFER_STATE new_buf;
 
 	error->file = (char *)filename;
-
 	errno = 0;
 	input_file = fopen(filename, "r");
 
@@ -182,7 +182,7 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 	assert(interp);
 	assert(input_file);
 
-	YY_BUFFER_STATE new_buf = yy_create_buffer (input_file, YY_BUF_SIZE);
+	new_buf = yy_create_buffer (input_file, YY_BUF_SIZE);
 	yypush_buffer_state(new_buf);
 
 /*
@@ -233,13 +233,10 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 	return 0;
 }
 
-/* this will perfrom a library lookup, returns 0 on success, 1 if it
-   couldn't find it.  Doesn;t actuall load anything, called "load"
-   because it uses load parameter conventions, interp-label-lib_entry.
-   Does not modify ret_lib on failure.
-
-   why does it return 0 if it finds it?  That is lunacy.  I'm changing it.
-*/
+/* 
+ * This uses loader function parameters.  Returns 1 when it finds lib, 0 when it
+ * doesn't.
+ */
 
 int FIAL_load_lookup (struct FIAL_interpreter *interp,
 		      const char *lib_label,

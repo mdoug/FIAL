@@ -27,5 +27,7 @@
     "other"   :
     [
 	"RUNTIME"
+	,"USER"
+
     ]
 }

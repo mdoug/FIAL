@@ -18,6 +18,7 @@
 #define PARSE_ERROR(X)    assert((0, X))
 #define PARSE_WARNING(X)  assert((0, X))
 
+/* #define YY_NO_UNISTD_H */
 #define YY_USER_ACTION yylloc.line   = FIAL_parser_line_no; yylloc.col = FIAL_parser_col_no;\
 		       FIAL_parser_col_no += yyleng;
 
@@ -58,8 +59,10 @@ DIGIT [0-9]
 "not"         {return NOT;}
 
 {DIGIT}+             {
+			long tmp;
 			errno = 0;
-		        long tmp = strtol(yytext, NULL, 10);
+
+		        tmp = strtol(yytext, NULL, 10);
 			if(tmp == LONG_MAX || tmp == LONG_MIN) {
 			       if (errno == ERANGE) {
 PARSE_WARNING("parsed value out of range!");
@@ -72,8 +75,10 @@ PARSE_WARNING("parsed value out of range!");
 		      }
 
 {DIGIT}*"."{DIGIT}+  {
+			double tmp;
 		        errno = 0;
-			double tmp = strtod(yytext, NULL);
+
+			tmp = strtod(yytext, NULL);
 			if(tmp == HUGE_VAL || tmp == -HUGE_VAL) {
 				if (errno == ERANGE) {
 					PARSE_WARNING("parsed value out of range!");

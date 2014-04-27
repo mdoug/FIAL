@@ -19,6 +19,7 @@ static int map_dp_wrapper (struct FIAL_value *a,
 		       struct FIAL_interpreter *b,
 		       void   *c)
 {
+	(void) c;
 	return FIAL_destroy_symbol_map_value(a, b);
 }
 
@@ -142,10 +143,10 @@ static void destroy_FIAL_lib (struct FIAL_library *lib)
 
 static void destroy_FIAL_c_lib (struct FIAL_c_lib *c_lib)
 {
+	struct FIAL_symbol_map_entry *iter, *tmp;
+
 	if(!c_lib)
 		return;
-
-	struct FIAL_symbol_map_entry *iter, *tmp;
 	if(c_lib->funcs) {
 		for(iter = c_lib->funcs->first; iter != NULL; iter = tmp) {
 			tmp = iter->next;
@@ -565,4 +566,16 @@ int FIAL_copy_value( struct FIAL_value *to,
 	return makin_copies->func(to, from, interp, makin_copies->ptr);
 }
 
-/* incoming, FIAL_copy_value */
+char *FIAL_get_str(struct FIAL_value *val)
+{
+	switch(val->type) {
+	case VALUE_STRING:
+		return val->str;
+	case VALUE_TEXT_BUF:
+		if(!val->text || !val->text->buf)
+			return NULL;
+		return val->text->buf;
+	default:
+		return NULL;
+	}
+}

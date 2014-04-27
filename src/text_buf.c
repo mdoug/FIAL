@@ -40,7 +40,7 @@ void FIAL_destroy_text_buf (struct FIAL_text_buf *buffy)
 	}
 }
 
-static inline size_t max (size_t a, size_t b, size_t c)
+static inline size_t size_t_max (size_t a, size_t b, size_t c)
 {
 	if (a > b && a > c)
 		return a;
@@ -55,11 +55,14 @@ int FIAL_text_buf_reserve (struct FIAL_text_buf *buffy, size_t space)
 		return -1;
 	if((buffy->cap == buffy->len) ||
 	   ((buffy->cap - buffy->len - 1) < space)) {
+		size_t new_size;
+		char *tmp;
+
 		assert(!((buffy->cap == buffy->len) && buffy->cap != 0));
-		size_t new_size = max(DEFAULT_BUF_START_SIZE,
+		new_size = size_t_max(DEFAULT_BUF_START_SIZE,
 				      buffy->cap + space + 1,
 				      buffy->cap * 2);
-		char *tmp = realloc(buffy->buf, new_size);
+		tmp = realloc(buffy->buf, new_size);
 		if(!tmp)
 			return -1;
 		buffy->buf = tmp;

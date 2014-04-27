@@ -1,0 +1,17 @@
+This document explains how to build FIAL for msvc.  
+
+The process is analogous to building for other systems.  Microsoft's nmake
+utility is used to drive the build, using the Makefile in this directory.  The
+overall build steps remain the same as the general case -- a version of python
+is required to create the automatically generated headers.  
+
+Furthermore, the build process assumes a properly set up environment.  The
+simplest way to achieve this environment is to use the batch file for a
+developers environment provided by visual studio.  The simplest way, in turn, to
+achieve this is by means of a batch file, I have included "run-nmake.bat" in
+this directory as well.  The first line may have to be modified, in the event
+that your Visual Studio install differs from mine.  
+
+Nmake has shown itself capable of performing the modest duties required of it in
+this build, and I currently have no plans to replace it with a Visual Studio
+project.  

@@ -1,0 +1,15 @@
+This file describes the compilation of FIAL using mingw.  
+
+In general, as of now, everything appears to work.  However, having set up the
+project to compile under msvc, I plan for that to become the primary windows
+platform.  
+
+That being said, there is no reason to take this out of the project, I will
+simply add in the new source files as I go along.  If for some reason it breaks
+and I don't have the time to fix it, at that point I will consider removing it.  
+
+But, in general, there is nothing special that needs to be done.  Flex from the
+msys distribution works, in addition to that python (only tested with version
+3.3 on windows, but on BSD the same files work with 2.7) is required, also a
+recent copy of byacc (one that include btyacc support) is required.  
+

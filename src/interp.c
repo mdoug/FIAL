@@ -107,8 +107,9 @@ int FIAL_get_symbol(FIAL_symbol *sym,
 		st->size = 1;
 		st->symbols[0] = NULL;  /*0 is not a valid symbol*/
 	} else if (st->cap == st->size) {
+		char **tmp;
+
 		assert(st->symbols);
-	char **tmp;
 		tmp = realloc(st->symbols, st->cap * 2 * sizeof(*st->symbols));
 		if(!tmp){
 			return -1;
@@ -150,9 +151,11 @@ static inline int lookup_symbol_value (value *val, symbol sym, exec_env *env)
 	value v1;
 	block *iter = env->block_stack;
 	for(; iter != NULL; iter = iter->next) {
+		int failure;
+
 		if(!iter->values)
 			continue;
-		int failure = lookup_symbol(&v1, iter->values, sym);
+		failure = lookup_symbol(&v1, iter->values, sym);
 		if(!failure ) {
 			*val = v1;
 			return 0;
@@ -244,6 +247,88 @@ static  int get_ref_from_map_access (value *ref, node *map_access,
 	*ref = val;
 	return 0;
 }
+
+/*
+ * This returns a reference to a value that is contained within a
+ * nested compound of maps and sequences.
+ *
+ * Not sure where else to put this, it requires the
+ * get_ref_from_sym_value_table, which is static,, but at the same
+ * time it really should be in with the api functions.  It is mainly
+ * for use by the omni.put/take/dupe functions, except that user
+ * functions would likely want to reuse the interface for their own
+ * code.  I suppose this is not terribly important, so it can just
+ * chill here for now.
+ */
+
+/*
+ * returns -1 if there was an access error.
+ *
+ *  Will probably improve this error reporting, this will probably not
+ *  be good enough.
+ */
+
+int FIAL_access_compound_value (struct FIAL_value     *ref,
+				struct FIAL_value     *compound,
+				struct FIAL_value     *accessor)
+{
+	struct FIAL_value *acs;
+	struct FIAL_value val;
+
+	int i, count; /* simplest */
+
+
+	assert(ref && compound && accessor);;
+	switch (accessor->type) {
+	case VALUE_INT:
+	case VALUE_SYMBOL:
+		acs = accessor;
+		count = 1;
+		break;
+	case VALUE_SEQ:
+		if (accessor->seq->first >= accessor->seq->head)
+			return -1;
+		count = accessor->seq->head - accessor->seq->first;
+		acs = accessor->seq->first;
+		break;
+	default:
+		return -1;
+		break;
+	}
+
+	val.type = VALUE_REF;
+	val.ref  = compound;
+
+	for(i = 0; i < count; i++) {
+		switch (acs[i].type) {
+		case VALUE_SYMBOL:
+			if(val.ref->type != VALUE_MAP) {
+				return -1;
+			}
+			if (get_ref_from_sym_value_table(&val, acs[i].sym,
+							 val.ref->map) != 0) {
+				return -1;
+			}
+			break;
+		case VALUE_INT:
+			if(val.ref->type != VALUE_SEQ)
+				return -1;
+			if (acs[i].n < 1 ||
+			    acs[i].n > (val.ref->seq->head -
+				      val.ref->seq->first))
+				return -1;
+
+			val.ref = val.ref->seq->first + (acs[i].n - 1);
+			break;
+		default:
+			return -1;
+			break;
+		}
+	}
+	*ref = val;
+	return 0;
+}
+
 
 /* returns -1 on bad allot,
    returns -2 on error when initializing  */
@@ -684,9 +769,11 @@ static inline int set_env_symbol (exec_env *env, symbol sym, value *val)
 	memset(&tmp, 0, sizeof(tmp));
 
 	for(; iter != NULL; iter = iter->next) {
+		int result; 
+
 		if(!iter->values)
 			continue;
-		int result = lookup_symbol(&tmp, iter->values, sym);
+		result = lookup_symbol(&tmp, iter->values, sym);
 		if(result == 0) {
 			set_symbol(iter->values, sym, val, env);
 			return 0;
@@ -1197,8 +1284,10 @@ static int insert_args (node *arglist_to, node *arglist_from,
 
 			iter2 = iter2->right;
 		} else {
+			int res;	
+
 			assert(!iter2);
-			int res = set_symbol(map_to, iter1->sym, &val, env);
+			res = set_symbol(map_to, iter1->sym, &val, env);
 			if(res == -1) {
 				return -1;
 			}
@@ -1472,7 +1561,7 @@ static inline int generate_external_arglist (int *argc,
 
 				res = get_ref_from_map_access(&ref,
 				          iter->left, env->block_stack);
-				if(res == 1) {
+				if(res != 0) {
 					result =  -2;
 					goto error;
 				}
@@ -1525,7 +1614,7 @@ static inline int interp_call_on_func (struct FIAL_c_func     *func,
 {
 	int argc = 0;
 	struct FIAL_value **argv = NULL;
-	struct FIAL_value *arguments;
+	struct FIAL_value *arguments = NULL;
 	int err;
 	int ret;
 

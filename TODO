@@ -10,13 +10,12 @@ FIXME:
 
 Done, but maybe Further Test
 
-(*) move/copy operators for function calls.  Also allows expressions.
+(*) move/copy operators for proc args.  Also allows expressions.
 (*) initializers for seq, maps (not the easiest thing ever, but not
     too tough) -- ok, maybe a bit more testing, but I think this is
     done.
 (*) allow assignment inside variable declarations.
 (*) initializers for proc arguments
-
 
 TODO:
 
