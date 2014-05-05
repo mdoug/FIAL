@@ -30,64 +30,6 @@ int perform_call_on_node (struct FIAL_ast_node *proc,
 			  struct FIAL_library  *lib,
 			  struct FIAL_exec_env *env);
 
-/*
-static inline void print_node_loc (struct FIAL_ast_node *loc)
-{
-	printf("line: %d, col %d\n", loc->loc.line, loc->loc.col);
-}
-
-static void print_tree_loc (struct FIAL_ast_node *tree)
-{
-	if(tree) {
-		print_node_loc(tree);
-		print_tree_loc(tree->left);
-		print_tree_loc(tree->right);
-	}
-}
-*/
-int test_print_args (struct FIAL_interpreter *interp)
-{
-	struct FIAL_library   *lib;
-	union  FIAL_lib_entry *lib_ent;
-	struct FIAL_exec_env  env;
-
-	struct FIAL_value args[3], val;
-	struct FIAL_error_info err;
-	int ret;
-	FIAL_symbol sym;
-
-	memset(args, 0, sizeof(args));
-	memset(&env, 0, sizeof(env));
-	memset(&err, 0, sizeof(err));
-
-	ret = FIAL_load_string  (interp, "print.fial", &lib_ent, &err );
-	if(ret == -1) {
-		printf("Error loading initial file %s on line %d, col %d:\n %s.\n" ,
-		       err.file, err.line, err.col,
-			err.static_msg);
-		if(err.dyn_msg)
-		    printf("%s.\n", err.dyn_msg);
-		return -1; /* no need to free, we're done....*/
-	}
-
-	lib = &lib_ent->lib;
-	FIAL_get_symbol   (&sym,  "print_it", interp );
-	FIAL_lookup_symbol(&val,  lib->procs, sym );
-
-	assert(val.type == VALUE_NODE);
-
-	env.interp = interp;
-	env.lib    = lib;
-
-	args[0].type = VALUE_INT;
-	args[0].n    = 20;
-	args[1].type = VALUE_STRING;
-	args[1].str  = "Whodat!";
-	args[2].type = VALUE_END_ARGS;
-
-	return FIAL_run_ast_node(val.node, args, &env);
-}
-
 void print_error (struct FIAL_error_info *err)
 {
 	printf("Error loading initial file %s on line %d, col %d:\n %s.\n" ,
@@ -100,7 +42,10 @@ void print_error (struct FIAL_error_info *err)
 
 /* this should be rewritten to use the new api, this is just a
    hodgepodge of stuff, most of which is no longer intended for top
-   level use. */
+   level use. 
+
+   This code should be exemplary.
+*/
 
 int main(int argc, char *argv[])
 {
@@ -138,7 +83,7 @@ int main(int argc, char *argv[])
 	FIAL_install_seq(interp);
 	/*	FIAL_install_system_lib (interp);*/
 
-	ret = FIAL_load_string  (interp, filename, &lib_ent, &err );
+	ret = FIAL_load_label  (interp, filename, &lib_ent, &err );
 	if(ret == -1) {
 		print_error(&err);
 		return -1; /* no need to free, we're done....*/

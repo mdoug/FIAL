@@ -1,6 +1,7 @@
 %option noyywrap never-interactive nounistd
 
 %{
+
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -19,6 +20,7 @@
 #define PARSE_WARNING(X)  assert((0, X))
 
 /* #define YY_NO_UNISTD_H */
+
 #define YY_USER_ACTION yylloc.line   = FIAL_parser_line_no; yylloc.col = FIAL_parser_col_no;\
 		       FIAL_parser_col_no += yyleng;
 
@@ -38,6 +40,7 @@ struct text_buffer {
 
 static void append_str  (struct text_buffer *, char *str, int len);
 static void append_char (struct text_buffer *, char);
+
 %}
 
 %x comment string_state
@@ -45,15 +48,12 @@ static void append_char (struct text_buffer *, char);
 DIGIT [0-9]
 
 %%
-
-	struct text_buffer buffy;
+	struct text_buffer buffy;  
 
 "if"          {return IF;}
 "var"         {return VAR;}
-    /* ok, I am testing out "leave" and "redo" for "break" and "continue" */
 "leave"       {return LEAVE;}
 "redo"        {return REDO;}
-"call"        {return CALL;}
 "and"         {return AND;}
 "or"          {return OR;}
 "not"         {return NOT;}
@@ -65,7 +65,7 @@ DIGIT [0-9]
 		        tmp = strtol(yytext, NULL, 10);
 			if(tmp == LONG_MAX || tmp == LONG_MIN) {
 			       if (errno == ERANGE) {
-PARSE_WARNING("parsed value out of range!");
+                        PARSE_WARNING("parsed value out of range!");
 			       }
 			} else if(tmp > INT_MAX || tmp < INT_MIN) {
 			       PARSE_WARNING("parsed value out of range!");
@@ -106,21 +106,20 @@ $[a-zA-Z_][a-zA-Z_0-9]* {
 <comment>\n             {FIAL_parser_line_no++; FIAL_parser_col_no = 1;}
 <comment>"*"+"/"        BEGIN(INITIAL);
 
-
 \"                     {memset(&buffy, 0, sizeof(buffy));
 		        BEGIN(string_state);}
-
-<string_state>\"               {
-			if(!buffy.buf) {
-			      yylval.str = malloc(1);
-			      yylval.str[0] = '\0';
-		        }
-			else {
-			     yylval.str = buffy.buf;
-		        }
-			BEGIN(INITIAL);
-			return STRING;
-                      }
+                       
+<string_state>\"        {
+                              if(!buffy.buf) {
+                                  yylval.str = malloc(1);
+                                  yylval.str[0] = '\0';
+                              }
+                              else {
+                                  yylval.str = buffy.buf;
+                              }
+                              BEGIN(INITIAL);
+                              return STRING;
+                       }
 <string_state>\n       {FIAL_parser_line_no++; FIAL_parser_col_no = 1;
 		       append_char(&buffy, '\n');}
 
@@ -129,14 +128,9 @@ $[a-zA-Z_][a-zA-Z_0-9]* {
 <string_state>\\r               append_char(&buffy, '\r');
 <string_state>\\b               append_char(&buffy, '\b');
 <string_state>\\f               append_char(&buffy, '\f');
-
-<string_state>\\\n            {FIAL_parser_line_no++; FIAL_parser_col_no = 1;
-		                 append_char(&buffy, '\n');}
-
-<string_state>\\.             append_char(&buffy, yytext[1]);
-<string_state>[^\\\n\"]+        {
-		           append_str(&buffy, yytext, yyleng);
-		       }
+<string_state>\\\n              {FIAL_parser_line_no++; FIAL_parser_col_no = 1;}
+<string_state>\\.               append_char(&buffy, yytext[1]);
+<string_state>[^\\\n\"]+        {append_str(&buffy, yytext, yyleng); }
 
  "{"                 {return '{';}
  "}"                 {return '}';}
@@ -204,7 +198,7 @@ static void reserve_buf (struct text_buffer  *buffy, int len)
 static void append_str (struct text_buffer *buffy, char *str, int len)
 {
 	if(!buffy->buf) {
-			create_buf(buffy, len);
+		create_buf(buffy, len);
 	}
 	assert(buffy->buf);
 	reserve_buf(buffy, len);

@@ -14,11 +14,11 @@ SOURCEDIR     = $(ROOTDIR)src/
 PACKAGE_DIR   = ./package
 INCLUDEDIR    = $(SOURCEDIR)
 
-CFLAGS        = /Dinline="" 
+CFLAGS        = /Dinline="" /MD /Zi 
 INCLUDE_FLAGS = /I$(INCLUDEDIR) /I.
 YACCFLAGS     = -b parser -d -L
 
-LDFLAGS       = 
+LDFLAGS       = /DEBUG
 
 B             = $(BUILDDIR)
 OBJS          = $B/main.o
@@ -73,7 +73,7 @@ $(ARCHIVE): $(GENERATED_HEADERS) $(AR_OBJS)
 	$(AR) /OUT:$(ARCHIVE) $(AR_OBJS)
 
 $(EXECUTABLE): $(GENERATED_HEADERS) $(OBJS) $(ARCHIVE)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) $(FIAL_LIB) /link /OUT:$@  
+	$(CC) $(CFLAGS) $(OBJS) $(FIAL_LIB) /link $(LDFLAGS) /OUT:$@  
 
 ../scripts/$(EXECUTABLE): $(EXECUTABLE)
 	cp -f $(EXECUTABLE) ../scripts/$(EXECUTABLE)

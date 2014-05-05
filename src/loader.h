@@ -15,7 +15,7 @@ int FIAL_load_lookup (struct FIAL_interpreter *interp,
   has not been loaded.  But even then, not much is saved with
   load_file.  Might rework this interface! */
 
-int FIAL_load_string (struct FIAL_interpreter *interp,
+int FIAL_load_label (struct FIAL_interpreter *interp,
 		      const char *lib_label,
 		      union FIAL_lib_entry **new_lib,
 		      struct FIAL_error_info     *error);

@@ -427,39 +427,12 @@ int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
  * for now they only work on FIAL procs.
  */
 
-int FIAL_run_strings (const char *lib_label,
-		      const char *proc_name,
-		      struct FIAL_value  *args,
-		      struct FIAL_exec_env *env)
-{
-	FIAL_symbol sym;
-	union FIAL_lib_entry *lib;
-	struct FIAL_value val;
-
-	memset(&val, 0, sizeof(val));
-
-	if(!FIAL_load_lookup(env->interp, lib_label, &lib))
-		return -1;
-	if(lib->type != FIAL_LIB_FIAL) {
-		assert(0);  /*FIXME */
-		return -2;
-	}
-	FIAL_get_symbol(&sym, proc_name, env->interp);
-	if(!sym)
-		return -3;
-
-	env->lib = &lib->lib;
-	FIAL_lookup_symbol(&val, env->lib->procs, sym);
-	if(val.type != VALUE_NODE)
-		return -4;
-	return FIAL_run_ast_node (val.node, args, env);
-}
-
-/* I should change this to just have an error input for the return.*/
+/*  I'm taking this out, just a quick check to make sure it compiles without
+ *  this.... */
 
 int FIAL_run_proc(struct FIAL_proc *proc,
-		  struct FIAL_value *args,
-		  struct FIAL_exec_env *env)
+                  struct FIAL_value *args,
+                  struct FIAL_exec_env *env)
 {
 	if(!proc)
 		return -1;

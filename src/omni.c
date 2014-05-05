@@ -190,8 +190,8 @@ static int load_lib (int argc, struct FIAL_value **args,
 	} else {
 		new_lib = 1;
 		memset(&env->error, 0, sizeof(env->error));
-		ret = FIAL_load_string(env->interp, args[1]->str,
-				       &lib_ent, &env->error);
+		ret = FIAL_load_label(env->interp, args[1]->str,
+				      &lib_ent, &env->error);
 		if(ret < 0)
 			return -1;
 		memset(&env->error, 0, sizeof(env->error));

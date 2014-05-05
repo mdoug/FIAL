@@ -93,6 +93,9 @@ struct FIAL_text_buf;
 
  */
 
+#ifndef FIAL_VALUE_USER_FIELDS
+#define FIAL_VALUE_USER_FIELDS
+#endif
 
 struct FIAL_value {
 	int type;
@@ -101,9 +104,6 @@ struct FIAL_value {
 		float x;
 		FIAL_symbol sym;
 		struct FIAL_symbol_map  *map;
-		#ifdef KEEP_ARRAYS
-		struct FIAL_array     *array;
-		#endif
 		struct FIAL_value       *ref;
 		struct FIAL_ast_node   *node;
 		struct FIAL_c_func     *func;
@@ -113,6 +113,7 @@ struct FIAL_value {
 		struct FIAL_seq         *seq;
 		char *str;
 		void *ptr;
+		FIAL_VALUE_USER_FIELDS
 	};
 };
 

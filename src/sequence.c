@@ -224,6 +224,7 @@ static int seq_in (int argc, struct FIAL_value **argv,
 	int i;
 	enum {SEQ = 0};
 
+	(void)ptr;
 	if(argc < 2 || argv[0]->type != VALUE_SEQ) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg =

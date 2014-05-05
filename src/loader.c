@@ -218,16 +218,7 @@ int FIAL_load_file(struct FIAL_interpreter *interp,
 		return -1;
 	}
 
-	/* this is suboptimal, but I can live with that for the time being... */
-
-	/*
-	 * actually, when loading from C api I don't mind requiring
-	 * load to be done manually.  I will have it do it
-	 * automatically from within fial though.  Current problem is
-	 * I have no way to return errors from here.
-	 */
-
-	if(lib_ent)
+	if(lib_ent && ret_lib)
 		*ret_lib = lib_ent;
 
 	return 0;
@@ -255,7 +246,7 @@ int FIAL_load_lookup (struct FIAL_interpreter *interp,
 /* this will lookup the string label first, and if it is available, it
    will simply return the library. */
 
-int FIAL_load_string (struct FIAL_interpreter    *interp,
+int FIAL_load_label (struct FIAL_interpreter    *interp,
 		      const char              *lib_label,
 	              union FIAL_lib_entry     **new_lib,
 		      struct FIAL_error_info      *error)

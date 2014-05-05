@@ -2,7 +2,7 @@ TODO
 
 -----------
 
-FIXME:
+-- Python style """ multiline strings.  
 
 -- remove constants from interpreter, replace with a library.
 

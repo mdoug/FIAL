@@ -59,7 +59,7 @@
 %token <sym> ID SYMBOL
 %token <str> STRING
 
-%token VAR CALL IF LEAVE REDO AND NOT OR DOUBLE_COLON UNKNOWN
+%token VAR IF LEAVE REDO AND NOT OR DOUBLE_COLON UNKNOWN
 
 %type <ast_node> expr assign statement statements body block redo if leave
 %type <ast_node> arg_decl proc_def var_decl call top labelled_body common_body
@@ -108,31 +108,11 @@ arg_decl:
 			 }
 ;
 
-/*
- * Ok, I have to add back in smoe stuff.  I took this out of statements:
-
-| break                {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-| continue             {$$ = NODE(AST_STMT, $1, NULL, @$.line, @$.col);}
-
-  Because I have to change it to only allow leave and redo as the last
-  statement in a body.
-
- */
-
 body:
 '{'  common_body      {$$ = $2;}
 ;
 
-/*
-   Unfortunately, this has to be separate from "body", because proc
-   bodies can't have labels.
-
-   This is a little bit of a cheat, since statemsnts doesn't use a
-   value, I am just sticking the label on it, and then I can pass this
-   up to block.  This stuff could be reworked a little bit, and I
-   probably should fix up my trees when I rewrite the interpreter to
-   use better internal data structures.
- */
+/* This sneaks the label in on the statements node's value */
 
 labelled_body:
 '{' ID ':'   common_body   {$$ = $4; $$->sym = $2;}

@@ -27,32 +27,40 @@ struct FIAL_proc {
 	struct FIAL_value          proc;
 };
 
-int FIAL_set_interp_to_run(struct FIAL_interpreter *interp);
 int FIAL_init_interpreter (struct FIAL_interpreter *interp);
 struct FIAL_interpreter *FIAL_create_interpreter (void);
 void FIAL_deinit_interpreter (struct FIAL_interpreter *interp);
 void FIAL_destroy_interpreter (struct FIAL_interpreter *interp);
-int FIAL_unwind_exec_env(struct FIAL_exec_env *env);
+
+int FIAL_set_interp_to_run(struct FIAL_interpreter *interp);
+
 int FIAL_init_exec_env(struct FIAL_exec_env *env);
 void FIAL_deinit_exec_env(struct FIAL_exec_env *env);
 struct FIAL_exec_env *FIAL_create_exec_env(void);
 void FIAL_destroy_exec_env(struct FIAL_exec_env *env);
-int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
-			       const  char *lib_label,
-			       const  char *proc_name,
-			       struct FIAL_interpreter *interp);
-int FIAL_run_proc (struct FIAL_proc *proc,
-		   struct FIAL_value *args,
-		   struct FIAL_exec_env *env);
 
+int FIAL_unwind_exec_env(struct FIAL_exec_env *env);
+
+int FIAL_set_proc_from_strings(struct FIAL_proc *proc,
+                               const  char *lib_label,
+                               const  char *proc_name,
+                               struct FIAL_interpreter *interp);
+
+int FIAL_run_proc (struct FIAL_proc *proc,
+                   struct FIAL_value *args,
+                   struct FIAL_exec_env *env);
+
+#ifdef USE_FIAL_RUN_STRINGS 
 int FIAL_run_strings (const char *lib_label,
 		      const char *proc_name,
 		      struct FIAL_value  *args,
 		      struct FIAL_exec_env *env);
+#endif /* USE_FIAL_RUN_STRINGS */
 
 int FIAL_run_ast_node (struct FIAL_ast_node  *proc,
 		       struct FIAL_value     *args,
 		       struct FIAL_exec_env  *env);
+
 char *FIAL_get_str (struct FIAL_value *);
 
 /* dealing with values */
