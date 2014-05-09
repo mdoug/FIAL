@@ -1,12 +1,16 @@
 EXECUTABLE    = FIAL
 
-ARCHIVE       = libfial.a
-FIAL_LIB      = -lfial
+# There's no need for a dll, the thing is 100k stripped.
+ARCHIVE       = libFIAL.a
+FIAL_LIB      = -lFIAL
 
 CC            = clang
 YACC          = byacc_2014_ted
 LEX           = flex
 PYTHON        = python 
+INSTALL       = install
+
+PREFIX        = /usr/
 
 ROOTDIR       = ../../
 SOURCEDIR     = ${ROOTDIR}src/
@@ -66,6 +70,9 @@ ${ROOTDIR}scripts/${EXECUTABLE}: ${EXECUTABLE}
 
 ${ROOTDIR}scripts/libtest/${EXECUTABLE}: ${EXECUTABLE}
 	cp -f ${EXECUTABLE} ${ROOTDIR}scripts/libtest/${EXECUTABLE}
+
+install:
+		
 
 clean:
 	rm -f ${OBJS} ${AR_OBJS}

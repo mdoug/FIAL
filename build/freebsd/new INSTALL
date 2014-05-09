@@ -1,0 +1,39 @@
+Ok, brief warning:  I have no idea what I am doing.  If you don't know how to
+look at a Makefile, and decide whether or not it makes any sense, this software
+is not for you.  I.e., installer beware. 
+
+--------------------
+Dependencies:
+--------------------
+
+Building FIAL requires byacc, but not the byacc from the FreeBSD base, which
+does not have the %location support of the byacc from:
+
+http://invisible-island.net/byacc/byacc.html
+
+That byacc needs to be configured with the --enable-btyacc option.  To avoid
+conflict with the base system yacc, I recommend mangling the name, and then
+inserting the mangled name into the FIAL Makefile.  The current mangled name is
+byacc_2014_ted, after the year, and the initials of the name of the maintainer
+given on the web page.  
+
+This can be accomplished with the following configure command to byacc's
+configure script:
+
+---
+./configure  --enable-btyacc 
+---
+
+There are also build dependencies on python, and flex.  As far as as I know, the
+ones on a typical BSD insall work -- they didn't present any difficulties.  
+
+--------------------
+FIAL Install
+--------------------
+
+FIAL uses a gnu makefile for installation.  Just edit the YACC variable to match
+the mangled name you passed to the configure script above.  
+
+Relevant targets are "all" (default), "install", "uninstall", and "clean"
+
+
