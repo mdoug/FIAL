@@ -577,6 +577,15 @@ control, combined with the simple type system, allow application programmers to
 create effective idioms for a myriad of disparate areas, with a modest amount of
 effort.    
 
+Note that this is placed here because it is anticipated that some readers will
+be curious about how constructs they are already familiar with would be done
+using the somewhat different FIAL control flow mechanisms.  They are not here to
+intimidate new comers, who should feel free to look over them to see if they
+find anything of interest, but should feel free to skip over constructs that
+they do not understand, as this documentation does not provide much in the way
+of explanation, and agonizing over them as they are presented here will hardly
+be fruitful.
+
 ### If, Then, Else
 
 Branching in FIAL is achieved through teh combination of if, leave, and named
@@ -641,8 +650,9 @@ Some might find it preferable to place the termination conditional at the top of
 the loop, as this way one won't have to scroll the screen to the bottom of the
 loop to see the termination clause.  
 
-    var i = 1, count = 20
+    var i = 0, count = 10
     { loop :
+    	i = i + 1
         if(i == count) {
             leave loop
         }
@@ -728,7 +738,7 @@ This is more efficient, but as can be seen, is slightly more complicated:
 
     omni.move (seq, out) /* put it back, good as new  */
 
-Or, again, just a C style for loop is quite ok..
+Or, again, just a C style for loop is quite ok...
 
     var size, i = 0, item
     var seq
@@ -1160,5 +1170,105 @@ blocks in the calling blocks --
 # Part IV -- Libraries
 
 Naturally, you can't just leave your procs all laying about, not being able to
-group them in any manner whatsoever.  I mean, this isn't C you know.  
+group them in any manner whatsoever.  I mean, this isn't C you know.  Libraries
+in FIAL are used with an identifier that is the same as the symbol which was
+used when loading the library, followed by a dot (a "."), followed by the proc
+name.  
 
+This notation should be familiar, it is used throughout.  All libraries that are
+not defined within the same source file must be called using library call
+notation.  
+
+## Loading
+
+Libraries can be loaded by a FIAL script.  When a library is loaded the first
+time, the proc named "load" is run.  Note that to some extent this is just a
+convention -- an embedding application does not have to do this, on applications
+that it loads directly.  Currently, any procedure loaded from a FIAL script will
+run the load proc.  Furthermore, the command line interpreter will run the load
+proc.
+
+### Load Proc
+
+Not all libraries have to be loaded.  This is necessary because of the current
+scheme, which forces all non local procedures to be accessed using library
+notation.  Since the loader is a procedure, it must exist within a proc.
+Obviously, the answer is to have one library available everywhere.  
+
+I call the library that must be available everywhere "omni".  As it currently
+stands, maps and globals are also "omnis", in that they too can be used from
+anywhere.  However, sequences and text buffers (the type that is used when
+strings need to be modified), have to be loaded manually in the load function.
+Clearly, this inconsistency is not good.  I think the "better" approach is
+requiring the load for all libraries except the one named "omni", but I am not
+entirely sold on this yet, so for now things are staying the way they are.    
+
+But I digress.  Libraries are loaded with omni.load.  The first argument is a
+symbol, which will be how that library is accessed within the string.  The
+second argument is the "label" of the library, a text string that is used to
+denote it.  Currently, this looks through the all loaded libraries, and then if
+it is not found, it looks for a file of that name in the filesystem.  If one is
+found, then it loads that library, by reading it as a FIAL script. 
+
+    load
+    {
+        omni.load ($seq, "sequence")  /* sequences must be loaded manually */
+        omni.load ($point, "point.fial") /* loads the filename */
+        
+        global.set($id, "value")  /* can set globals */
+    }
+
+    run
+    {
+
+        var p
+        point.create(p) /* access the point library with $point */
+
+        var v
+        global.lookup(v, $id)  /* can lookup globals */
+
+        var seq, map
+        seq.create(seq) /* use seq to access sequence. */
+
+        omni.print("print still is accessed via omni.print")
+        map.create(map) /* map is always available */
+    }
+    
+### Load Interpreter State
+
+Generally, load procs can only be loaded from a "load" state.  As of now, when
+the interpreter is in load state, all functionality is available.  This includes
+the ability to run procs, load libraries, set globals, etc.  
+
+However, it is typical for an application to then set the interpreter to "run"
+state.  In run state, certain things are disallowed, due to the fact that
+certain parts of the interpreter must be immutable, since FIAL is expected to be
+able to be run in multiple threads.  This includes loading libraries, and
+setting globals.  
+
+In general, only use things that are marked in the documentation as "load only",
+from within a load proc, or a proc that is called only by the load proc.  
+
+### Load Dependencies
+
+It is generally best to have libraries that do not need to run procs from other
+libraries during loading.  However, this is not required, and the execution
+model is easily explained.  Once the script of a file is parsed, its label will
+be attached, and it will be made available as a loaded proc.  Then, its load
+proc will be run.  If the load proc loads a library, that library will be looked
+up, and if found, it will simply be attached to the symbol, without parsing it,
+or running its load proc. This way, libraries can be mutually dependant without
+causing an infinite loop.  
+
+Note that there is nothing to prevent a sort of "dependency hell," where the
+loading libraries become so dependant upon one another, and the exact order of
+the load calls in relation to the inter library calls.  Remember, that in
+general, a "load" proc should just be responsible for loading the library, and
+in general, calls to procs in other libraries should be avoided, since they may
+be in an incomplete load state -- its load function may have called yours, and
+have more loading to do before the proc that you want to call will properly
+execute.  
+
+## Omni Lib
+
+Here the functions in the omni lib will be explained. 

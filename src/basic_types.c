@@ -149,6 +149,7 @@ int FIAL_set_symbol(symbol_map *m, int sym, value const *val,
 		    exec_env *env)
 {
 	struct FIAL_symbol_map_entry *tmp = NULL, *iter = NULL;
+	assert(m);
 
 	for(iter = m->first;
 	    iter != NULL;

@@ -321,7 +321,7 @@ static int set_arguments_on_node (struct FIAL_ast_node *node,
 				if(!env->block_stack->values) {
 					env->error.code = ERROR_BAD_ALLOC;
 					env->error.static_msg =
-						"Couldn't allocate to start "
+						"Couldn't allocate symbol table needed to start "
 						"interpreting;";
 					return -1;
 				}
@@ -334,6 +334,16 @@ static int set_arguments_on_node (struct FIAL_ast_node *node,
 				args = NULL;
 			}
 		} else {
+			if (!(env->block_stack->values)) {
+				env->block_stack->values = FIAL_create_symbol_map();
+				if(!env->block_stack->values) {
+					env->error.code = ERROR_BAD_ALLOC;
+					env->error.static_msg =
+					"Couldn't allocate value table needed to start "
+					"interpreter";
+					return -1;
+				}
+			}
 			FIAL_set_symbol(env->block_stack->values, iter->sym,
 					&none, env);
 		}

@@ -253,7 +253,7 @@ static  int get_ref_from_map_access (value *ref, node *map_access,
  * nested compound of maps and sequences.
  *
  * Not sure where else to put this, it requires the
- * get_ref_from_sym_value_table, which is static,, but at the same
+ * get_ref_from_sym_value_table, which is static, but at the same
  * time it really should be in with the api functions.  It is mainly
  * for use by the omni.put/take/dupe functions, except that user
  * functions would likely want to reuse the interface for their own
@@ -440,6 +440,12 @@ static inline int eval_float_bi_op(value *val, char op, value *left, value *righ
 	return 0;
 }
 
+/*
+ * FIXME: divide by zero is set to VALUE error.  I don't know if this makes
+ * sense.  I have to consider my options with regard to the expression
+ * evaluation errors.    
+ */
+
 static inline int eval_int_bi_op(value *val, char op, value *left, value *right)
 {
 	memset(val, 0, sizeof(*val));
@@ -455,6 +461,10 @@ static inline int eval_int_bi_op(value *val, char op, value *left, value *right)
 		val->n = left->n * right->n;
 		break;
 	case '/':
+		if(right->n == 0) {
+			val->type = VALUE_ERROR;
+			break;
+		}
 		val->n = left->n / right->n;
 		break;
 	case '<':
@@ -809,7 +819,6 @@ static int get_initialized_map(value *val, node *init, exec_env *env)
 	return get_initialized_value(INIT_MAP, val, init, env);
 }
 
-/* each your heart out, C++ */
 static int get_initialized_value (const enum init_type init_type, value *val, node *init,
 				  exec_env *env)
 {
@@ -1170,6 +1179,7 @@ returns
 -2 for bad lookup
 -3 for bad expression,
 -4 for bad initializer.
+-5 for bad map accessor
 
 The args will be left on the incompleted block in the case of error.
 Not sure what else to do about this, but it is a little unfortunate,
@@ -1258,7 +1268,7 @@ static int insert_args (node *arglist_to, node *arglist_from,
 				res = get_ref_from_map_access(&ref, iter2->left,
 							      env->block_stack);
 				if (res != 0)
-					return -2;
+					return -5;
 				res = set_symbol(map_to, iter1->sym,
 						 ref.ref, env);
 				if(res < 0)
@@ -1270,7 +1280,7 @@ static int insert_args (node *arglist_to, node *arglist_from,
 				res = get_ref_from_map_access(&ref, iter2->left,
 							      env->block_stack);
 				if(res != 0)
-					return -2;
+					return -5;
 				if( FIAL_copy_value(&val, ref.ref, env->interp) < 0)
 					return -1;
 				if(set_symbol(map_to, iter1->sym, &val, env)
@@ -1383,20 +1393,27 @@ int perform_call_on_node (node *proc, node *arglist,
 		if((res = insert_args(proc->left, arglist,
 				      b->values, last_block, env)) < 0) {
 			pop_block(env);
-			if(res == -1) {
+			switch(res) {
+			case -1:
 				env->error.code = ERROR_BAD_ALLOC;
 				env->error.static_msg = "bad alloc setting "
 					"arguments";
 				FIAL_set_error(env);
 				return -1;
-			} else if(res == -2) {
+			case -2:
 				assert(res == -2);
 				env->error.code = ERROR_UNDECLARED_VAR;
 				env->error.static_msg = "undeclared variable "
 							"in arglist";
 				FIAL_set_error(env);
 				return -1;
-			} else {
+			case -5:
+				env->error.code = ERROR_UNDECLARED_VAR;
+				env->error.static_msg = 
+				"Map access error when generating arglist";
+				FIAL_set_error(env);
+				return -1;
+			default:
 				assert(res == -3 || res == -4);
 				return -1;
 			}
@@ -1426,6 +1443,7 @@ static inline void free_arg_strip (int count,
    return  -2 if a reference could not be found to match an argument.
            -3 on bad invalid expression.
 	   -4 for invalid initializer
+           -5 for bad map accessor
 
    this function currently frees all memory on error, which is not
    good for error reporting, since there will not be a record of which
@@ -1547,8 +1565,8 @@ static inline int generate_external_arglist (int *argc,
 
 				res = get_ref_from_map_access(&ref,
 				          iter->left, env->block_stack);
-				if(res == 1) {
-					result =  -2;
+				if(res != 0) {
+					result =  -5;
 					goto error;
 				}
 				FIAL_move_value(arg_strip + i, ref.ref,
@@ -1562,7 +1580,7 @@ static inline int generate_external_arglist (int *argc,
 				res = get_ref_from_map_access(&ref,
 				          iter->left, env->block_stack);
 				if(res != 0) {
-					result =  -2;
+					result =  -5;
 					goto error;
 				}
 				if(FIAL_copy_value(arg_strip + i, ref.ref,
@@ -1620,26 +1638,34 @@ static inline int interp_call_on_func (struct FIAL_c_func     *func,
 
 	err = generate_external_arglist(&argc, &argv, arglist,
 					&arguments, env);
-	if(err == -1) {
-		env->error.code = ERROR_BAD_ALLOC;
-		env->error.static_msg = "couldn't allocate space for "
-					"external_arglist";
-		FIAL_set_error(env);
-		ret =  -1;
-		goto cleanup;
-	}
-	if(err == -2) {
-		env->error.code = ERROR_UNDECLARED_VAR;
-		env->error.static_msg = "unbound variable when "
-					"generating argumennts";
-		FIAL_set_error(env);
-		ret =  -2;
-		goto cleanup;
-	}
-	if (err < 0) {
-		assert(err == -3 || err == -4);
-		ret = err;
-		goto cleanup;
+	if(err < 0) {
+		switch(err) {
+		case -1:
+			env->error.code = ERROR_BAD_ALLOC;
+			env->error.static_msg = 
+			"couldn't allocate space for external_arglist";
+			FIAL_set_error(env);
+			ret =  -1;
+			goto cleanup;
+		case -2:
+			env->error.code = ERROR_UNDECLARED_VAR;
+			env->error.static_msg = "unbound variable when "
+						"generating argumennts";
+			FIAL_set_error(env);
+			ret =  -2;
+			goto cleanup;
+		case -5:
+			env->error.code = ERROR_INVALID_MAP_ACCESS;
+			env->error.static_msg = "unbound variable when "
+						"generating argumennts";
+			FIAL_set_error(env);
+			ret =  -5;
+			goto cleanup;
+		default:
+			assert(err == -3 || err == -4);
+			ret =  err;
+			goto cleanup;
+		}
 	}
 
 	assert(func);
@@ -1764,8 +1790,8 @@ static inline int execute_call_B (node *stmt, exec_env *env)
 */
 
 int FIAL_finish_value (value                   *val,
-		       struct FIAL_finalizer   *fin,
-		       struct FIAL_interpreter *interp)
+                       struct FIAL_finalizer   *fin,
+                       struct FIAL_interpreter *interp)
 {
 	if(!fin)
 		return 0;

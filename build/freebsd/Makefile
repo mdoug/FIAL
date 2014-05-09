@@ -5,7 +5,7 @@ FIAL_LIB      = -lfial
 
 CC            = clang
 YACC          = byacc_2014_ted
-
+LEX           = flex
 PYTHON        = python 
 
 ROOTDIR       = ../../
@@ -33,22 +33,11 @@ GENERATED_HEADERS = ast_def_short.h value_def_short.h error_def_short.h
 
 all: ${EXECUTABLE}
 
-package: ${EXECUTABLE} ${ARCHIVE}
-	mkdir ${PACKAGE_DIR}
-	mkdir ${PACKAGE_DIR}/include
-	mkdir ${PACKAGE_DIR}/include/FIAL
-	mkdir ${PACKAGE_DIR}/bin
-	mkdir ${PACKAGE_DIR}/lib
-	cp -f ${SOURCEDIR}*.h ${PACKAGE_DIR}/include/FIAL
-	cp -f ./*.h ${PACKAGE_DIR}/include/FIAL
-	cp -f ${EXECUTABLE} ${PACKAGE_DIR}/bin
-	cp -f ${ARCHIVE} ${PACKAGE_DIR}/lib
-
 parser.tab.h: parser.tab.c
 parser.tab.c: ${SOURCEDIR}parser.y
 	${YACC} ${YACCFLAGS} $<
 lex.yy.c: ${SOURCEDIR}lexer.l
-	flex --header-file="flex_header.h" $<
+	${LEX} --header-file="flex_header.h" $<
 lex.yy.o: lex.yy.c parser.tab.h
 	${CC} ${INCLUDE_FLAGS} ${CFLAGS} -c lex.yy.c
 parser.tab.o: parser.tab.c
@@ -83,3 +72,20 @@ clean:
 	rm -f ${GENERATED_HEADERS}
 	rm -f ${EXECUTABLE} ${ARCHIVE}
 	rm -f flex_header.h lex.yy.c parser.tab.h parser.tab.c
+
+
+# Not sure this is useful on FreeBSD, it's what I use for making the windows .zip
+# file.  Leaving it around for the time being though, since I'm going to rewrite
+# that to use cmd.exe commands, so I need this somewhere.  
+
+package: ${EXECUTABLE} ${ARCHIVE}
+	mkdir ${PACKAGE_DIR}
+	mkdir ${PACKAGE_DIR}/include
+	mkdir ${PACKAGE_DIR}/include/FIAL
+	mkdir ${PACKAGE_DIR}/bin
+	mkdir ${PACKAGE_DIR}/lib
+	cp -f ${SOURCEDIR}*.h ${PACKAGE_DIR}/include/FIAL
+	cp -f ./*.h ${PACKAGE_DIR}/include/FIAL
+	cp -f ${EXECUTABLE} ${PACKAGE_DIR}/bin
+	cp -f ${ARCHIVE} ${PACKAGE_DIR}/lib
+
