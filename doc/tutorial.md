@@ -1271,4 +1271,295 @@ execute.
 
 ## Omni Lib
 
-Here the functions in the omni lib will be explained. 
+The "omni" lib is everywhere, hence there term "omni."  It has a number of 
+procs that are necessary.  It is not currently in its final form, rather still
+in a testing stage.  
+
+### print
+    print (item1, item2, item3, etc......)
+
+This function will probably have to be reworked at some point.  It is the 
+print function, it will print a reasonable representation of built in types, 
+and the type number of other types.  The main difficulty with a "print" type
+library function is that in an embedded setting, a script might not want to 
+do a "printf" to stdout, which is what this function does.  On Windows, in 
+particular, this is usually a no op.  
+
+So in the future, this will probably be application defined, or omitted in 
+favor of leaving the application to deal wtih.  The interpreter would then
+have an implementation in its standalone form.  
+
+Though, back to documenting, this proc prints the items out on the same line,
+and inserts a newline afterwards.
+
+### move
+
+    omni.move(dest, source)
+
+omni.move is used to move a value from a location into a variable.  
+Note, than in tandem with the copy operator, it is also the simplest way to
+copy using a map accessor.  
+
+    omni.move (dest, ::map.accessor)
+
+In this instance, omni.copy would create and then finalize a temporary copy,
+which is needlessly inefficient.  
+
+### copy
+
+    copy (copy, original)
+
+This is used to create a copy.  It is in some ways superfluous, as it is less
+useful than the corresponding move command with a copy operator, yet it is 
+included nonetheless.  However, the move proc is needed to deal with map
+accessors.  I.e.
+
+    /* equivalent */
+    omni.copy (new, orig)
+    omni.move (new, ::orig)
+
+    /* no copy equivalent */
+    omni.move (new, ::orig.map.accessed)
+
+### register
+
+    omni.register(new_type)
+
+Returns a type variable.  This is useful for a number of reasons, predominantly,
+to mark types.  However, it can be used to return a unique  value in other
+circumstances as well.  Can only be used when the interpreter is in load
+state.  
+
+
+### type_of
+
+    omni.type_of (type, value)
+
+Used to get the type of a value.  Note: I will probably change this to "typeof"
+at some point, type_of is needlessly difficult to input via keyboard.  
+
+### const
+
+    omni.const (value, $key)
+
+Used to retrieve a constant value.  This system will likely be reworked, as 
+I don't like its current implementation.  What effect this will have on its 
+FIAL facing usage interface, I don't know.  
+
+### break
+
+    omni.break
+
+This function is a no op.  Its purpose, is that if you are running the 
+interpreter in a debugger, you can set a breakpoint on the function this calls,
+thus allowing you to input break points into a FIAL script.  This is useful
+for debugging the interpreter.  
+
+### take
+
+    omni.take (value, container, accessor)
+
+Take is used to access the value of a map, sequence, or a structure formed
+by nesting maps and sequences.  The value will be moved into the first 
+argument, from the second argument.  The accessor is either a symbol for
+a map, or a number for a sequence.  To access nested containers, a 
+sequence of accessors can be used.  For example,
+
+    var cont = {item = {1, 2, 3, {another_item = {$1, $2, $get_me, $4}}}}
+    var get_me
+    omni.take(get_me, cont, {$item, 4, $another_item, 3})
+    if not get_me == $get_me {print ("uh oh")}
+
+The use of take (and its sibling, put and dupe) is somewhat more cumbersome,
+but no less vital to FIAL programming, than move and copy.  
+
+### dupe
+
+    omni.dupe (value, container, accessor)
+
+Dupe is identical to take, except that it makes a copy of the value,
+instead of performing a move.  
+
+### put
+
+    omni.put (container, accessor, value)
+
+Put is used in a similar manner to take and dupe, except with a different order
+of operands.  This is done in keeping with the predominant FIAL idiom of 
+placing "to" values at the beginning of the argument list.  In the case of put,
+the value is put into the container, so the container comes first.  
+
+### load
+
+Load is discussed in the section on loading libraries.  
+
+## Map
+
+Map is its own library in FIAL. It is an omni library, there is no need
+to load it.  This may change in the future.  
+
+Indeed, the entire library may be removed in the future, in favor of a few
+omni procs.  
+
+### create
+
+    map.create (new_map)
+
+Produces a new map, which is empty.  This will probably be doable in the 
+future via syntax, but is now a proc call.  
+
+### put
+
+    map.put (map, accessor, value)
+
+Like omni put, with two major differences:  
+
+1. It can create a new entry name, where the omni version can only put into 
+existing symbols.  
+2.  It only works on nested maps.  
+
+Thus, there is overlapping functionality here.  I think the best way forward
+is to have just an omni.put function, which will force in new symbols in maps,
+but not force extra places in sequences.  
+
+### take
+
+map.take is a version of omni.take, which only works on nested maps.  
+
+### dupe
+
+map.dupe is version of omni.dupe, which only works on maps.  
+
+
+## Sequences
+
+Sequences must be loaded.  Typical is:
+
+    omni.load($seq, "sequence")
+
+The FIAL script can use a value other than $seq, though for the purpose of
+documentation, $seq is assumed.  
+
+### create
+
+    seq.create(new_seq)
+
+Currently, the only proc which creates a seq. The created seq is empty. 
+
+
+### in
+
+    seq.in (seq, value)
+
+Adds value into the sequence.
+
+### first
+
+    seq.first(value, seq)
+
+Retrieves the value in the sequence which was placed in first.  For example:
+
+    seq.create(seq)
+    seq.in(seq, 1) seq.in(seq, 2), seq.in(seq, 3)
+    seq.first(out, seq)
+
+out1 will equal 1, out2 will equal 2, out3 will equal 3.  
+
+
+### last
+
+    seq.last(value, seq)
+
+Retrieves the value in the sequence which was most recently placed inside.
+In general, this is more efficient than using seq.first, when either will work
+equally well for the algorithm it is to be preferred.  
+
+
+### size
+
+    seq.size( size, seq)
+
+Retrieve the size of the sequence.  
+
+### take
+
+Take is similar to omni.take, except that it does not nest, and only works
+on a sequence. 
+
+### put
+
+seq.put is similar to omni.put, except it does not nest, and only works on 
+sequences. 
+
+### dupe
+
+seq.dupe is similar to omni.dupe, except it does not nest, and only works
+on sequences.  
+
+## Text Bufs
+
+A text buf is the FIAL version of a mutable string.  It can, typically, be used
+where a string can be used.  It is currently rather rudimentary, implemented
+as a basic buffer.  
+
+While this type is not one of the primitive ones in the language, it is 
+nevertheless intended to be a standard building block within the language.  
+
+The library must be loaded.  This documentation assumes it is loaded under
+the symbol $txt.
+
+    omni.load($txt, "text_buf")
+
+### create
+
+    txt.create (text_buf)
+
+Creates a text buf.  It starts empty.  
+
+### append
+
+Adds the string to the end of the buffer.  Also works with ints and floats,
+and this retrieves there decimal representaiton.  
+
+The is currently the only way to add text to a text buf.  
+
+### compare
+
+Compares two strings texturally.  Returns a true value if they are the same.
+Strings and text_bufs will be compared based upon their content.  
+
+## Globals
+
+The "global" lib is somewhat poorly named, however, this name is automatically
+included, since global is an omni lib.   it's purpose is to store and retrieve
+values. Values stored can then be retrieved from within that library.  It is
+"global" in the sense that it spans all execution environments, not in that
+it is available in all libraries.  To expose a value to other libraries, use
+an accessor procedure.  
+
+
+This is a library that has evolved somewhat over time, it serves the purpose
+of storing global data.  However, it can only hold basic types, and it can
+only be set while the interpreter is in "load" mode.  
+
+It is necessary for storing type information retrieved from the register 
+function.  
+
+Again, do not fall too madly in love with the humble global lib, since it is
+likely to be reworked.  
+
+### set
+
+    global.set ($some_sym, value)
+
+
+Sets the symbol given in the first argument to the value in the second argument. 
+Can only be performed while interpreter is in a load state.  Value is retrieved
+with lookup function. 
+
+### lookup 
+
+    global.lookup (value, $some_sym)
+
+Retrieve a value previously set from within the library.
+

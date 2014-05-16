@@ -171,16 +171,19 @@ static int text_buf_append(int argc, struct FIAL_value **argv,
 
 	if(argc < 2 || argv[0]->type != VALUE_TEXT_BUF) {
 		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "Arguments to text buf append are a text"
+		env->error.static_msg =
+			"Arguments to text buf append are a text"
 			" buf and a value to append.";
 		E_SET_ERROR(*env);
 		return -1;
 	}
 	assert(argv[0]->text);
 	for(i = 1; i < argc; i++) {
-		if((ret = FIAL_text_buf_append_value(argv[0]->text, argv[i])) < 0) {
+		ret = FIAL_text_buf_append_value(argv[0]->text, argv[i]);
+		if (ret < 0) {
 			env->error.code = ERROR_BAD_ALLOC;
-			env->error.static_msg = "Couldn't append value to text buf.";
+			env->error.static_msg =
+				"Couldn't append value to text buf.";
 			E_SET_ERROR(*env);
 			break;
 		}

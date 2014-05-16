@@ -128,8 +128,10 @@ static int run_load_on_lib (struct FIAL_proc *proc,
 	FIAL_init_exec_env(&env);
 	env.interp = interp;
 
-	if ((ret = FIAL_run_proc(proc, NULL, &env)) < 0)
+	if ((ret = FIAL_run_proc(proc, NULL, &env)) < 0) {
 		*error = env.error;
+		env.error.dyn_msg = NULL;
+	}
 
 	FIAL_deinit_exec_env(&env);
 	return ret;
@@ -856,13 +858,6 @@ int FIAL_install_std_omnis (struct FIAL_interpreter *interp)
 	assert(sym);
 	FIAL_add_omni_lib(interp, sym, lib);
 
-#ifdef KEEP_ARRAYS
-	sym = 0;
-	FIAL_load_c_lib(interp, "array", array_lib, &lib);
-	FIAL_get_symbol(&sym,   "array", interp);
-	assert(sym);
-	FIAL_add_omni_lib(interp, sym, lib);
-#endif /* KEEP_ARRAYS */
 
 	return 0;
 }

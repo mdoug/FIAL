@@ -439,8 +439,7 @@ static int seq_copy (struct FIAL_value *to,
 
 int FIAL_install_seq (struct FIAL_interpreter *interp)
 {
-	struct FIAL_c_func_def lib_seq[] =
-		{
+	struct FIAL_c_func_def lib_seq[] = {
 			{"create"  , seq_create , NULL},
 			{"in"      , seq_in     , NULL},
 			{"first"   , seq_first  , NULL},
