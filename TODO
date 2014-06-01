@@ -1,6 +1,28 @@
+Ok, srs business --
+
+this is all done, I just need to return the thread on creation.  This will 
+do 2 things: (1) allow for a test to see if the thread was actually created.
+(2) On finalization, a thread will (wait) on the other thread.  For some
+reason I thought this wasn't necessary, but it clearly is, since the threads
+have to finish before the interpreter is destroyed.  
+
+
+(1) proc value
+(2) FIAL_error_info value
+(3) way to run procs, both single threaded and multithreaded.  
+(4) channels
+(5) at some point work into the interpreter to have "control channels", 
+    i.e. some way to do multithreaded stops, etc.  
+    This is maybe not an immediate issue.  
+
 TODO
 
 -----------
+
+--- Error registry -- right now everything ends up as "RUNTIME" which is
+    hardly useful.  But I will know more once I have error types for dealing
+    with procs.  
+
 
 -- Python style """ multiline strings.  
 

@@ -61,7 +61,6 @@ int FIAL_access_compound_value (struct FIAL_value     *ref,
 				struct FIAL_value     *compound,
 				struct FIAL_value     *accessor);
 
-
 /*************************************************************
  *
  * Definitions
@@ -75,7 +74,11 @@ int FIAL_access_compound_value (struct FIAL_value     *ref,
  * point this can be redone/re-evaluated.
  *
  * pulling out the type tag out of the union is definitely possible,
- * but would harly improve the voodoo-esque nature of this.
+ * but would hardly improve the voodoo-esque nature of this.
+ *
+ * The main issue, is that sometimes these union pointers are not actually
+ * pointing to a union, but rather to one of its member structures.  So, reading
+ * it as the wrong entry type could segfault.  
  */
 
 #define FIAL_LIB_FIAL      1

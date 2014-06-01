@@ -18,12 +18,15 @@
 	,"MAP"
 	,"TEXT_BUF"
 	,"SEQ"
+	,"CHANNEL"
 
 	,"NODE"
 	,"C_FUNC"
 	,"LIB"
 	,"C_LIB"
 	,"LIB_ENTRY"
+	,"PROC"
+	,"ERROR_INFO"
 	,"USER"
     ]
 }

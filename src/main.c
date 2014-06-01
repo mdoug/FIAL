@@ -1,3 +1,4 @@
+#include <Windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,6 +25,8 @@
 
 int FIAL_install_constants (struct FIAL_interpreter *);
 int FIAL_install_std_omnis (struct FIAL_interpreter *);
+int FIAL_install_proc (struct FIAL_interpreter *);
+int FIAL_install_channels (struct FIAL_interpreter *);
 
 int perform_call_on_node (struct FIAL_ast_node *proc,
 			  struct FIAL_ast_node *arglist,
@@ -81,6 +84,9 @@ int main(int argc, char *argv[])
 	FIAL_install_std_omnis(interp);
 	FIAL_install_text_buf(interp);
 	FIAL_install_seq(interp);
+	FIAL_install_proc(interp);
+	FIAL_install_channels(interp);
+
 	/*	FIAL_install_system_lib (interp);*/
 
 	ret = FIAL_load_label  (interp, filename, &lib_ent, &err );
@@ -127,7 +133,7 @@ int main(int argc, char *argv[])
 	env.skip_advance = 0;
 
 	ret = FIAL_interpret(&env);
-
+	Sleep(1000);
 /*
 
 

@@ -97,6 +97,9 @@ struct FIAL_text_buf;
 #define FIAL_VALUE_USER_FIELDS
 #endif
 
+struct FIAL_proc;
+struct FIAL_error_info;
+
 struct FIAL_value {
 	int type;
 	union {
@@ -111,6 +114,9 @@ struct FIAL_value {
 		struct FIAL_c_lib     *c_lib;
 		struct FIAL_text_buf   *text;
 		struct FIAL_seq         *seq;
+		struct FIAL_proc       *proc;
+		struct FIAL_error_info  *err;
+		struct FIAL_channel    *chan;
 		char *str;
 		void *ptr;
 		FIAL_VALUE_USER_FIELDS

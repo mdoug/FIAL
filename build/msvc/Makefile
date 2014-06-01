@@ -14,16 +14,20 @@ SOURCEDIR     = $(ROOTDIR)src/
 PACKAGE_DIR   = ./package
 INCLUDEDIR    = $(SOURCEDIR)
 
-CFLAGS        = /Dinline="" /MD /Zi 
-INCLUDE_FLAGS = /I$(INCLUDEDIR) /I.
+CFLAGS        = /Dinline="" /MD /Zi /Od
+# CFLAGS        = -Dinline=""
+INCLUDE_FLAGS = -I$(INCLUDEDIR) -I.
 YACCFLAGS     = -b parser -d -L
 
 LDFLAGS       = /DEBUG
 
+S             = $(SOURCEDIR)
 B             = $(BUILDDIR)
 OBJS          = $B/main.o
-AR_OBJS       = $B/lex.yy.o $B/parser.tab.o $B/interp.o $B/basic_types.o $B/loader.o $B/ast.o \
-	        $B/omni.o $B/text_buf.o $B/api.o $B/sequence.o
+AR_OBJS       = $B/lex.yy.o $B/parser.tab.o $B/interp.o $B/basic_types.o \
+                $B/loader.o $B/ast.o $B/omni.o $B/text_buf.o $B/api.o    \
+                $B/sequence.o $B/proc.o $B/channels.o $B/F_threads.o     \
+                $B/chan_lib.o
 
 DEFINE_GENERATOR  = $(PYTHON) $(ROOTDIR)utils/gen_defines.py
 GENERATED_HEADERS = ast_def_short.h value_def_short.h error_def_short.h
@@ -50,8 +54,10 @@ lex.yy.c: $(SOURCEDIR)lexer.l
 	flex --header-file="flex_header.h" $?
 lex.yy.o: lex.yy.c parser.tab.h
 	$(CC) $(INCLUDE_FLAGS) $(CFLAGS) /Fo$@ /c lex.yy.c
+#	$(CC) $(INCLUDE_FLAGS) $(CFLAGS) -o$@ -c lex.yy.c
 parser.tab.o: parser.tab.c
 	$(CC) $(INCLUDE_FLAGS) $(CFLAGS) /Fo$@ /c parser.tab.c 
+#	$(CC) $(INCLUDE_FLAGS) $(CFLAGS) -o$@ -c parser.tab.c 
 
 flex_header.h: lex.yy.c
 
@@ -62,8 +68,15 @@ value_def_short.h: $(SOURCEDIR)value_defines.json
 error_def_short.h: $(SOURCEDIR)errors.json
 	$(DEFINE_GENERATOR) $(SOURCEDIR)errors.json $@ short
 
+# $B/channels.o: $S/channels.c  # $S/channels.h
+# 	$(CC) $(INCLUDE_FLAGS) $(CFLAGS)               \
+#               /FI"FIAL.h" \
+#               /DCHANNEL_VALUE_TYPE="struct FIAL_value" \
+#               /c /Fo$@ $S/channels.c
+
 {$(SOURCEDIR)}.c{$(BUILDDIR)}.o: 
 	$(CC) $(INCLUDE_FLAGS) $(CFLAGS) /c /Fo$@ $? 
+#	$(CC) $(INCLUDE_FLAGS) $(CFLAGS) -c -o$@ $?
 
 $(OBJS): 
 
