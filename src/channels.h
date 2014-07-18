@@ -1,3 +1,5 @@
+#ifndef FIAL_CHANNELS_H
+#define FIAL_CHANNELS_H
 /*
  * I am just hard coding this to deal with FIAL_values, I will have
  * to add stuff later for other stuff.  I might have to rethink this a tad too,
@@ -42,3 +44,5 @@ struct FIAL_value FIAL_channel_take (struct FIAL_channel *chan);
 int FIAL_channel_pick (struct FIAL_value *value, int *picked_id,
                   struct FIAL_channel **channel_choices, 
                   int ch_array_size);
+
+#endif /* FIAL_CHANNEL_H */

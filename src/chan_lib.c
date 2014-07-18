@@ -139,7 +139,7 @@ static int pick(int argc, struct FIAL_value **argv,
 	FIAL_clear_value(argv[1], env->interp);
 	*argv[0] = value;
 	argv[1]->type = VALUE_INT;
-	argv[1]->n = id;
+	argv[1]->n = (id + 1);
 	return 0;
 }
 

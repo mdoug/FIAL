@@ -133,24 +133,27 @@ int FIAL_copy_symbol_map (struct FIAL_symbol_map *to,
 	return 0;
 }
 
-typedef struct FIAL_exec_env exec_env;
+/* This must be from before I was just using FIAL_clear_value for all of this
+ * stuff.  In my opinion, this is not a good optomization at this point, but I
+ * don't feel the need to take it out.
+ */
 
-static inline int set_symbol_finalize (value *val, exec_env *env)
+static inline int set_symbol_finalize (value *val, 
+                                       struct FIAL_interpreter *interp)
 {
 	struct FIAL_finalizer *fin;
-	assert(val->type < env->interp->types.size);
-	fin = env->interp->types.finalizers +  val->type;
+	assert(val->type < interp->types.size);
+	fin = interp->types.finalizers +  val->type;
 	if(fin->func)
-		fin->func(val, env->interp, fin->ptr);
+		fin->func(val, interp, fin->ptr);
 	return 0;
 }
 
 int FIAL_set_symbol(symbol_map *m, int sym, value const *val,
-		    exec_env *env)
+		    struct FIAL_interpreter *interp)
 {
 	struct FIAL_symbol_map_entry *tmp = NULL, *iter = NULL;
 	assert(m);
-
 	for(iter = m->first;
 	    iter != NULL;
 	    iter = iter->next) {
@@ -160,24 +163,20 @@ int FIAL_set_symbol(symbol_map *m, int sym, value const *val,
 				tmp = iter->val.ref;
 			else
 				tmp = &iter->val;
-			set_symbol_finalize(tmp, env);
+			set_symbol_finalize(tmp, interp);
 			*tmp = *val;
 			return 0;
 		}
 	}
-
 	assert(iter == NULL);
-
 	tmp = ENTRY_ALLOC(sizeof(*tmp));
 	if(!tmp) {
 		return -1;
 	}
-
 	memset(tmp, 0, sizeof(*tmp));
 	tmp->sym = sym;
 	tmp->val = *val;
 	tmp->next = m->first;
-
 	m->first = tmp;
 	return 1;
 }
@@ -234,126 +233,6 @@ int FIAL_map_lookup_and_clear(value *val, symbol_map *m, int sym,
 	memset(val, 0, sizeof(*val));
 	return 1;
 }
-
-#ifdef KEEP_ARRAYS
-
-/*************************************************************
- *
- * ARRAYS.
- *
- *  note -- no factory function for arrays, just memset to 0;
- *
- *************************************************************/
-
-int FIAL_destroy_array(struct FIAL_array *array,
-		       struct FIAL_interpreter *interp)
-{
-	struct FIAL_value *iter, *end;
-	struct FIAL_finalizer *fin;
-
-	assert(interp);
-	if(!array) {
-		return 1;
-	}
-	if(array->size == 0) {
-		FREE(array->array);
-		FREE(array);
-		return 0;
-	};
-	assert(array->array);
-	for(iter = array->array, end = array->array + array->size;
-	    iter < end; ++iter) {
-		assert(iter->type < interp->types.size);
-		fin = interp->types.finalizers + iter->type;
-		if(fin->func)
-			fin->func(iter, interp, fin->ptr);
-
-	}
-	FREE(array->array);
-	FREE(array);
-
-	return 0;
-}
-
-int FIAL_destroy_array_value(struct FIAL_value *val,
-			     struct FIAL_interpreter *interp)
-{
-
-	assert(val->type == VALUE_ARRAY);
-	FIAL_destroy_array(val->array, interp);
-	memset(val, 0, sizeof(*val));
-	return 0;
-}
-
-/* returns -1 on allocation error.
-
-  returns -2 if passed a negative integer ( i could just make it take
-   unsigned ints, but since int is the value type, that's what i'm
-   going with.  )
-*/
-
-int FIAL_array_set_index (struct FIAL_array *array, size_t index,
-			  struct FIAL_value *val,
-			  struct FIAL_interpreter *interp)
-{
-	assert(array);
-	if(index < 1) {
-		ERROR("only positive indexes allowed!");
-		return -1;
-	}
-	if(index > array->size) {
-		if(index > array->cap) {
-			struct FIAL_value *tmp;
-			size_t new_cap = ((index > array->cap * 2) ?
-					  array->cap * 2 : index);
-			new_cap = new_cap > 20 ? new_cap : 20;
-			tmp = REALLOC(array->array,
-				      new_cap * sizeof(struct FIAL_value));
-			if(!tmp) {
-				ERROR("couldnt' get space to add value!");
-				return -1;
-			}
-			array->array = tmp;
-			memset(array->array + array->cap, 0,
-	  		    sizeof(struct FIAL_value) * (new_cap - array->cap));
-			array->cap = new_cap;
-		}
-	} else {
-		FIAL_clear_value(array->array + index - 1, interp);
-	}
-	array->array[index - 1] = *val;
-	memset(val, 0, sizeof(*val));
-
-	if(array->size < index)
-		array->size = index;
-
-	return 0;
-}
-
-int FIAL_array_get_index (struct FIAL_value *val, struct FIAL_array *array,
-			  size_t index, struct FIAL_interpreter *interp)
-{
-	assert(array);
-	if(index < 1) {
-		ERROR("only positive indexes allowed!");
-		return -1;
-	}
-	if(index > array->size){
-		FIAL_clear_value(val, interp);
-		val->type = VALUE_ERROR;
-		return 1;
-	}
-	assert(array->size);
-	assert(array->array);
-	*val = array->array[index - 1];
-
-	/*FIXME NEED COPYING / moving */
-	memset((array->array + (index - 1)), 0, sizeof(struct FIAL_value));
-
-	return 0;
-}
-
-#endif /* KEEP_ARRAYS */
 
 /* returns:
 

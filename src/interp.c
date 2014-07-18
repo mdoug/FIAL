@@ -33,6 +33,7 @@ typedef FIAL_symbol symbol;
  *
  *************************************************************/
 
+static int handle_assign_right (value *val, node *init, exec_env *env);
 static int handle_initializer  (value *val, node *init, exec_env *env);
 static int get_initialized_seq(value *val, node *init, exec_env *env);
 static int get_initialized_map(value *val, node *init, exec_env *env);
@@ -218,7 +219,8 @@ static inline int get_ref_from_sym_block_stack (value *ref, symbol sym, block *b
   will return -1 in the event that something other than a map is being
   accessed.
 */
-static  int get_ref_from_map_access (value *ref, node *map_access,
+
+static int get_ref_from_map_access (value *ref, node *map_access,
 				     block *bs)
 {
 	value val, none;
@@ -382,20 +384,12 @@ static inline int declare_variable (node *stmt, exec_env *env)
 			return -1;
 		} else {
 			value val = tmp;
-			if(iter->left) {
-				if(iter->left->type == AST_SEQ_INITIALIZER ||
-				   iter->left->type == AST_MAP_INITIALIZER) {
-					if( handle_initializer
-					    (&val, iter->left,env) < 0)
-						return -1;
-				} else {
-					if(eval_expression(&val, iter->left,
-							   env) < 0)
-						return -1;
-				}
-			}
+			if(iter->left)
+				if(handle_assign_right(&val, iter->left, 
+				                       env) < 0) 
+					return -1;
 			if ( set_symbol(env->block_stack->values, iter->sym,
-					&val, env) < 0) {
+					&val, env->interp) < 0) {
 				env->error.code = ERROR_BAD_ALLOC;
 				env->error.static_msg =
 					"couldn't allocate space for new value";
@@ -600,7 +594,6 @@ static int eval_expression(value *val, node *expr, exec_env *env)
 	memset(&left,  0, sizeof(*val));
 	memset(&right, 0, sizeof(*val));
 
-
 	/* have to handle this first, since it is a terminal, but it
 	 * has a left and a right operand.  This way everything else
 	 * can carry on unchanged.
@@ -785,15 +778,13 @@ static inline int set_env_symbol (exec_env *env, symbol sym, value *val)
 			continue;
 		result = lookup_symbol(&tmp, iter->values, sym);
 		if(result == 0) {
-			set_symbol(iter->values, sym, val, env);
+			set_symbol(iter->values, sym, val, env->interp);
 			return 0;
 		}
 	}
 
 	return -1;
 }
-
-
 
 /*
  *  get_initialized_map / get_initialized_seq --
@@ -808,7 +799,6 @@ enum init_type {INIT_SEQ, INIT_MAP};
 static int get_initialized_value (const enum init_type, value *val, node *init,
 				  exec_env *env);
 
-
 static int get_initialized_seq(value *val, node *init, exec_env *env)
 {
 	return get_initialized_value(INIT_SEQ, val, init, env);
@@ -819,14 +809,14 @@ static int get_initialized_map(value *val, node *init, exec_env *env)
 	return get_initialized_value(INIT_MAP, val, init, env);
 }
 
-static int get_initialized_value (const enum init_type init_type, value *val, node *init,
-				  exec_env *env)
+static int get_initialized_value (const enum init_type init_type, value *val, 
+                                  node *init, exec_env *env)
 {
 	int res;
 	value tmp, tmp2, none;
 	node *iter;
 
-	assert (val && init && env && init->right && init->left);
+	assert (val && init && env);
 	assert (init_type == INIT_MAP || init_type == INIT_SEQ);
 
 	if(init_type == INIT_SEQ) {
@@ -834,13 +824,15 @@ static int get_initialized_value (const enum init_type init_type, value *val, no
 		val->seq  = FIAL_create_seq();
 		if(!val->seq)
 			return -1;
-
+		if (FIAL_seq_reserve(val->seq, init->n) < 0) 
+			return -1;
 	} else {
 		val->type = VALUE_MAP;
 		val->map  = FIAL_create_symbol_map();
 		if(!val->map)
 			return -1;
 	}
+
 	memset(&none, 0, sizeof(none));
 
 /* this coding style is a bit inelegant, but it seems simplest.  If
@@ -858,17 +850,15 @@ static int get_initialized_value (const enum init_type init_type, value *val, no
 		tmp = tmp2 = none;
 		switch(iter->type) {
 		case AST_INIT_EXPRESSION:
-			if(eval_expression(&tmp, iter->left, env) < 0) {
-				FIAL_seq_in(val->seq, &tmp);
+			if(eval_expression(&tmp, iter->left, env) < 0)
 				return -2;
-			}
 			if (init_type == INIT_SEQ) {
 				if( FIAL_seq_in(val->seq, &tmp) < 0) {
 					return -1;
 				}
 			} else {
 				if(FIAL_set_symbol(val->map, iter->sym,
-						   &tmp, env)<0) {
+						   &tmp, env->interp) < 0) {
 					return -1;
 				}
 			}
@@ -897,7 +887,7 @@ static int get_initialized_value (const enum init_type init_type, value *val, no
 				}
 			} else {
 				if(FIAL_set_symbol(val->map, iter->sym,
-						   &tmp, env) < 0) {
+						   &tmp, env->interp) < 0) {
 					return -1;
 				}
 			}
@@ -919,7 +909,7 @@ static int get_initialized_value (const enum init_type init_type, value *val, no
 					return -3;
 				}
 				if(FIAL_set_symbol(val->map, iter->sym,
-						   tmp.ref, env) < 0) {
+						   tmp.ref, env->interp) < 0) {
 					return -1;
 				}
 			}
@@ -951,7 +941,7 @@ static int get_initialized_value (const enum init_type init_type, value *val, no
 					return -1;
 				}
 				if (FIAL_set_symbol(val->map, iter->sym,
-						    &tmp2, env)  < 0) {
+						    &tmp2, env->interp)  < 0) {
 					FIAL_clear_value(&tmp2, env->interp);
 					return -1;
 				}
@@ -968,7 +958,7 @@ static int get_initialized_value (const enum init_type init_type, value *val, no
 				}
 			} else {
 				if(FIAL_set_symbol(val->map, iter->sym,
-						   tmp.ref, env) < 0) {
+						   tmp.ref, env->interp) < 0) {
 					return -1;
 				}
 			}
@@ -989,7 +979,7 @@ static int get_initialized_value (const enum init_type init_type, value *val, no
 				}
 			} else {
 				if(FIAL_set_symbol(val->map, iter->sym,
-						   &tmp2, env)<0) {
+						   &tmp2, env->interp)<0) {
 					FIAL_clear_value(&tmp2, env->interp);
 					return -1;
 				}
@@ -1037,20 +1027,86 @@ static int handle_initializer  (value *val, node *init, exec_env *env )
 	return res;
 }
 
+static int handle_assign_right (struct FIAL_value *val, 
+                                       struct FIAL_ast_node *node, 
+                                       struct FIAL_exec_env *env)
+{
+	struct FIAL_value ref;
+	int res;
+
+	switch (node->type) {
+	case AST_SEQ_INITIALIZER: /* fallthrough */
+	case AST_MAP_INITIALIZER:
+		if( handle_initializer(val, node, env) < 0)
+			return -1;
+		break;
+	case AST_INIT_MOVE_ID:
+		res = get_ref_from_sym_block_stack(&ref, node->sym, 
+		                                   env->block_stack);
+		if (res != 0) {
+			env->error.code = ERROR_UNDECLARED_VAR;
+			env->error.static_msg = 
+			"unknown variable in move assignmnet";
+			FIAL_set_error(env);
+			return -1;
+		}
+		FIAL_move_value(val, ref.ref, env->interp);
+		break;
+	case AST_INIT_COPY_ID:
+		res = get_ref_from_sym_block_stack(&ref, node->sym, 
+		                                   env->block_stack);
+		if (res != 0) {
+			env->error.code = ERROR_UNDECLARED_VAR;
+			env->error.static_msg = 
+			"unknown variable in copy assignmnet";
+			FIAL_set_error(env);
+			return -1;
+		}
+		FIAL_copy_value(val, ref.ref, env->interp);
+		break;
+	case AST_INIT_MOVE_ACS:
+		res = get_ref_from_map_access(&ref, node->left,
+					      env->block_stack);
+		if (res != 0) {
+			env->error.code = ERROR_INVALID_MAP_ACCESS;
+			env->error.static_msg = 
+			"bad map access in move assignment";
+			FIAL_set_error(env);
+			return -1;
+		}
+		FIAL_move_value (val, ref.ref, env->interp);
+		break;
+	case AST_INIT_COPY_ACS:
+		res = get_ref_from_map_access(&ref, node->left,
+					      env->block_stack);
+		if (res != 0) {
+			env->error.code = ERROR_INVALID_MAP_ACCESS;
+			env->error.static_msg = 
+			"bad map access in copy assignment";
+			FIAL_set_error(env);
+			return -1;
+		}
+		FIAL_copy_value (val, ref.ref, env->interp);
+		break;
+	default:
+		if (eval_expression(val, node, env) < 0)
+			return -1;
+		break;
+	}
+	return 0;
+}
+
 static inline int assign_variable(node *stmt, exec_env *env)
 {
 	int tmp, new_val;
 	value val, var_val, Fv, *set_me;
 	struct FIAL_ast_node *iter;
 
-	if((tmp = stmt->right->type) == AST_SEQ_INITIALIZER ||
-	   tmp == AST_MAP_INITIALIZER) {
-		if( handle_initializer(&val, stmt->right, env) < 0) {
-			return -1;
-		}
-	} else 	if (eval_expression(&val, stmt->right, env) < 0) {
+	memset(&val, 0, sizeof(val));
+	tmp = handle_assign_right(&val, stmt->right, env);
+	if (tmp < 0) 
 		return -1;
-	}
+
 	if(!stmt->left) {
 		if((tmp = set_env_symbol (env, stmt->sym, &val)) < 0) {
 			env->error.code = ERROR_UNDECLARED_VAR;
@@ -1080,6 +1136,7 @@ static inline int assign_variable(node *stmt, exec_env *env)
 	   be in place in any case.
 
 	*/
+
 	if((tmp = lookup_symbol_value (&var_val, stmt->left->sym, env)) != 0) {
 		env->error.code = ERROR_UNDECLARED_VAR;
 		env->error.line = stmt->loc.line;
@@ -1087,7 +1144,15 @@ static inline int assign_variable(node *stmt, exec_env *env)
 		env->error.file = env->lib->label;
 		env->error.static_msg = "attempt to set undeclared variable.";
 
-		return tmp;
+		return -1;
+	}
+	if (var_val.type != VALUE_MAP) { 
+		env->error.code = ERROR_INVALID_MAP_ACCESS;
+		env->error.static_msg=
+		"Attempt to access map of variable which is not a map on left "
+		"side of assignment";
+		FIAL_set_error(env);
+		return -1;
 	}
 
 	iter = stmt->left->right;
@@ -1115,11 +1180,11 @@ static inline int assign_variable(node *stmt, exec_env *env)
 			return -1;
 		}
 		iter = iter->right;
-	};
+	}
 	assert(iter->right == NULL);
 	assert(set_me->type == VALUE_MAP);
 
-	FIAL_set_symbol(set_me->map, iter->sym, &val, env);
+	FIAL_set_symbol(set_me->map, iter->sym, &val, env->interp);
 
 	return 0;
 }
@@ -1213,7 +1278,8 @@ static int insert_args (node *arglist_to, node *arglist_from,
 				if(res == 1) {
 					return -2;
 				}
-				res = set_symbol(map_to, iter1->sym, &ref, env);
+				res = set_symbol(map_to, iter1->sym, &ref, 
+				                 env->interp);
 				if(res == -1) {
 					return -1;
 				}
@@ -1224,7 +1290,8 @@ static int insert_args (node *arglist_to, node *arglist_from,
 				if(eval_expression(&val, iter2->left,env) < 0) {
 					return -3;
 				}
-				res = set_symbol(map_to, iter1->sym, &val, env);
+				res = set_symbol(map_to, iter1->sym, &val, 
+				                 env->interp);
 				if (res == -1)
 					return -1;
 				break;
@@ -1233,7 +1300,8 @@ static int insert_args (node *arglist_to, node *arglist_from,
 						      env) < 0) {
 					return -4;
 				}
-				res = set_symbol(map_to, iter1->sym, &val, env);
+				res = set_symbol(map_to, iter1->sym, &val, 
+				                 env->interp);
 				if(res == -1)
 					return -1;
 				break;
@@ -1244,7 +1312,8 @@ static int insert_args (node *arglist_to, node *arglist_from,
 					return -2;
 				}
 				val = *ref.ref;
-				res = set_symbol(map_to, iter1->sym, &val, env);
+				res = set_symbol(map_to, iter1->sym, &val, 
+				                 env->interp);
 				if(res == -1) {
 					return -1;
 				}
@@ -1257,7 +1326,8 @@ static int insert_args (node *arglist_to, node *arglist_from,
 					return -2;
 				}
 				FIAL_copy_value (&val, ref.ref, env->interp);
-				res = set_symbol(map_to, iter1->sym, &val, env);
+				res = set_symbol(map_to, iter1->sym, &val, 
+				                 env->interp);
 				if(res == -1) {
 					FIAL_clear_value(&val, env->interp);
 					return -1;
@@ -1270,7 +1340,7 @@ static int insert_args (node *arglist_to, node *arglist_from,
 				if (res != 0)
 					return -5;
 				res = set_symbol(map_to, iter1->sym,
-						 ref.ref, env);
+						 ref.ref, env->interp);
 				if(res < 0)
 					return -1;
 				*ref.ref = none;
@@ -1283,7 +1353,8 @@ static int insert_args (node *arglist_to, node *arglist_from,
 					return -5;
 				if( FIAL_copy_value(&val, ref.ref, env->interp) < 0)
 					return -1;
-				if(set_symbol(map_to, iter1->sym, &val, env)
+				if(set_symbol(map_to, iter1->sym, &val,
+				              env->interp)
 				   < 0) {
 					return -1;
 				}
@@ -1297,7 +1368,8 @@ static int insert_args (node *arglist_to, node *arglist_from,
 			int res;	
 
 			assert(!iter2);
-			res = set_symbol(map_to, iter1->sym, &val, env);
+			res = set_symbol(map_to, iter1->sym, &none, 
+			                 env->interp);
 			if(res == -1) {
 				return -1;
 			}
@@ -1611,21 +1683,6 @@ error:
 	return result;
 }
 
-/* ok this decision logic has to change, this gets split into 3
- * functions, one for external, one for internal, and one to tell the
- * difference.  the third function I guess is interp_call_B, which
- * already exists. */
-
-/* ok, this has obviously become useless.... */
-
-#ifdef THIS_ROUTINE_IS_DUMB
-static inline int interp_call_on_proc (struct FIAL_proc *proc, node *arglist,
-					library *lib, exec_env *env)
-{
-	return perform_call_on_node(proc->node, arglist, lib, env);
-}
-#endif /*THIS_ROUTINE_IS_DUMB*/
-
 static inline int interp_call_on_func (struct FIAL_c_func     *func,
 				       node                *arglist,
 				       exec_env                *env)
@@ -1775,31 +1832,6 @@ static inline int execute_call_B (node *stmt, exec_env *env)
 
 #define ENTRY_FREE(x) free(x)
 #define MAP_FREE(x)   free(x)
-#define finish_value(x,y,z) FIAL_finish_value(x,y,z)
-
-/* ok, attach the lib and the interp yourself.... */
-
-
-/*
-  note:
-
-  This is not really the recommended way to do this anymore, since the
-  structures have been simplified (and are intended to remain simple).
-
-
-*/
-
-int FIAL_finish_value (value                   *val,
-                       struct FIAL_finalizer   *fin,
-                       struct FIAL_interpreter *interp)
-{
-	if(!fin)
-		return 0;
-	if(fin->func)
-		return fin->func(val, interp, fin->ptr);
-	return 0;
-}
-
 
 static inline int execute_break(node *stmt, exec_env *env)
 {

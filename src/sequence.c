@@ -9,7 +9,7 @@
 #include "error_def_short.h"
 #include "value_def_short.h"
 
-#define DEFAULT_SEQ_SIZE 24
+#define DEFAULT_SEQ_SIZE 12
 
 /*
  * I should add a routine that sets allocates a certain amount of
@@ -112,6 +112,46 @@ static int need_room (struct FIAL_seq *seq)
 	return 0;
 }
 
+int FIAL_seq_reserve (struct FIAL_seq *seq, int new_size)
+{
+	int current_size;
+	int actual_size;
+	int offset;
+	struct FIAL_value *tmp;
+
+	assert(seq);
+	offset = seq->first - seq->seq;
+	current_size = seq->head - seq->first;
+	actual_size = seq->size - offset;
+	if ((seq->size - offset) >= new_size) 
+		return 0;
+	
+	if (actual_size >= new_size) {
+		memmove(seq->seq, seq->first, current_size * sizeof(*seq->seq));
+		seq->first -= offset;
+		seq->head -= offset;
+		memset(seq->head, 0, sizeof(*seq->head) * 
+		       (seq->size - current_size));
+		assert(seq->first == seq->seq && 
+		       seq->head - seq->first == actual_size);
+		return 0;
+	}
+
+	memmove(seq->seq, seq->first, actual_size * sizeof(*seq->seq));
+	tmp = realloc(seq->seq, sizeof(*seq->seq) * new_size);
+	if(tmp == NULL) {
+		seq->head = (seq->head) - (seq->first - seq->seq);
+		seq->first = seq->seq;
+		return -1;
+	}
+	seq->seq = tmp;
+	seq->size = new_size;
+	seq->first = seq->seq;
+	seq->head = seq->seq + current_size;
+	memset(seq->head, 0, sizeof(*seq->head) * (seq->size - current_size));
+	return 0;
+}
+
 int FIAL_seq_in (struct FIAL_seq *seq,
 		 struct FIAL_value *val)
 {
@@ -187,6 +227,37 @@ int FIAL_seq_copy (struct FIAL_seq *to,
 	return 0;
 }
 
+int FIAL_seq_append (struct FIAL_seq *to, struct FIAL_seq *from)
+{
+	int tmp;
+
+	assert(to && from);
+	if(from->head - from->first == 0)
+		return 0;
+
+	assert(from->head && from->first && from->seq);
+
+	tmp = FIAL_seq_reserve(to, (to->head - to->first) + 
+	                           (from->head - from->first));
+	if(tmp < 0) 
+		return -1;
+
+	/* guaranteed not to overlap, even if to and from are the same, since
+         * head is outside of the array */
+
+	memcpy (to->head, from->first, 
+	         sizeof(*to->head) * (from->head - from->first));
+	to->head += from->head - from->first;
+	
+	if (to != from) {
+		memset(from->first, 0, 
+		       (sizeof *from->first) * (from->head - from->first));
+		from->first = from->head = from->seq;
+	}
+
+	return 0;
+}
+
 /*
  * FIAL interface functions
  */
@@ -246,6 +317,55 @@ static int seq_in (int argc, struct FIAL_value **argv,
 	return 0;
 }
 
+static void append_arg_error (struct FIAL_exec_env *env)
+{
+	env->error.code = ERROR_INVALID_ARGS;
+	env->error.static_msg =
+		"To append sequences, arg1 must be a seq, it must be "
+		"followed by seqs to append";
+	FIAL_set_error(env);
+}
+
+static int seq_append (int argc, struct FIAL_value **argv,
+		   struct FIAL_exec_env *env, void *ptr)
+{
+	struct FIAL_seq *to;
+	int i;
+	enum {SEQ = 0};
+
+	(void)ptr;
+	if(argc < 2 || 
+	   argv[0]->type != VALUE_SEQ ||
+	   argv[1]->type != VALUE_SEQ) {
+		append_arg_error (env);
+		return -1;
+	}
+	assert(argv);
+	to = argv[0]->seq;
+	for(i = 1; i < argc; i++) {
+		if (argv[i]->type != VALUE_SEQ) {
+			if(FIAL_seq_in(argv[SEQ]->seq, argv[i+1]) < 0) {
+				env->error.code = ERROR_BAD_ALLOC;
+				env->error.static_msg = 
+				"Unable to add space to seq for new value.";
+				FIAL_set_error(env);
+				return -1;
+			}
+		} else {
+			struct FIAL_seq *from = argv[i]->seq;
+			assert(argv[i]->type == VALUE_SEQ);
+			if (FIAL_seq_append (to, from) < 0) {
+				env->error.code = ERROR_BAD_ALLOC;
+				env->error.static_msg = 
+				"Unable to append, out of memory";
+				FIAL_set_error(env);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int seq_first (int argc, struct FIAL_value **argv,
 		      struct FIAL_exec_env *env, void *ptr)
 {
@@ -290,6 +410,33 @@ static int seq_last (int argc, struct FIAL_value **argv,
 		FIAL_set_error(env);
 		return -1;
 	}
+	return 0;
+}
+
+
+/* this will add (n) new none values onto the end of the sequence */
+
+static int seq_expand (int argc, struct FIAL_value **argv,
+                       struct FIAL_exec_env *env, void *ptr)
+{
+	if (argc < 2 ||
+	    argv[0]->type != VALUE_SEQ ||
+	    argv[1]->type != VALUE_INT) { 
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+		"Need (1) sequence, and (2) int size of sequence expansion to"
+		"expand sequence";
+		FIAL_set_error(env);
+		return -1;
+	}
+	if (FIAL_seq_reserve(argv[0]->seq, argv[1]->n) < 0) { 
+		env->error.code = ERROR_BAD_ALLOC;
+		env->error.static_msg = 
+		"Unable to expand, out of memory";
+		FIAL_set_error(env);
+		return -1;
+	}
+	argv[0]->seq->head += argv[1]->n;
 	return 0;
 }
 
@@ -442,6 +589,7 @@ int FIAL_install_seq (struct FIAL_interpreter *interp)
 	struct FIAL_c_func_def lib_seq[] = {
 			{"create"  , seq_create , NULL},
 			{"in"      , seq_in     , NULL},
+			{"append"  , seq_append , NULL},
 			{"first"   , seq_first  , NULL},
 			{"last"    , seq_last   , NULL},
 			{"take"    , seq_take   , NULL},

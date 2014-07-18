@@ -44,7 +44,7 @@ int FIAL_destroy_symbol_map_value (struct FIAL_value *value,
 int FIAL_set_symbol(struct FIAL_symbol_map *m,
 		    int sym,
 		    struct FIAL_value const *val,
-		    struct FIAL_exec_env *);
+		    struct FIAL_interpreter *);
 /*returns 0 if available, 1 if not, -1 on error */
 int FIAL_lookup_symbol(struct FIAL_value *val,
 		       struct FIAL_symbol_map *m,
@@ -56,14 +56,6 @@ int FIAL_map_lookup_and_clear (struct FIAL_value *val,
 int FIAL_destroy_array(struct FIAL_array *, struct FIAL_interpreter *);
 int FIAL_destroy_array_value(struct FIAL_value *, struct FIAL_interpreter *);
 
-
-#ifdef KEEP_ARRAYS
-
-int FIAL_array_set_index (struct FIAL_array *array, size_t index,
-			  struct FIAL_value *val, struct FIAL_interpreter *);
-int FIAL_array_get_index (struct FIAL_value *val, struct FIAL_array *array,
-			  size_t index, struct FIAL_interpreter *interp);
-#endif /* KEEP_ARRAYS */
 int FIAL_register_type(int *new_type,
 		       struct FIAL_finalizer *fin,
 		       struct FIAL_copier *cpy,
@@ -140,16 +132,6 @@ struct FIAL_seq {
 	struct FIAL_value *head;
 };
 
-#ifdef KEEP_ARRAYS
-/* FIAL_arrays are deprecated, I have some code that uses them,
-   however. */
-
-struct FIAL_array {
-	struct FIAL_value *array;
-	size_t  size;
-	size_t  cap;
-};
-#endif /* KEEP_ARRAYS */
 struct FIAL_text_buf {
 	char *buf;
 	int len;

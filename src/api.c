@@ -42,15 +42,6 @@ static int map_copier (struct FIAL_value *to,
 
 	return FIAL_copy_symbol_map(to->map, from->map, interp);
 }
-#ifdef KEEP_ARRAYS
-static int array_dp_wrapper (struct FIAL_value *a,
-			     struct FIAL_interpreter *b,
-			     void   *c)
-{
-	return FIAL_destroy_array_value(a, b);
-}
-static struct FIAL_finalizer array_fin = {array_dp_wrapper, NULL};
-#endif /* KEEP_ARRAYS */
 
 static struct FIAL_finalizer map_fin   = {map_dp_wrapper,   NULL};
 static struct FIAL_copier    map_cpy   = {map_copier,       NULL};
@@ -88,9 +79,6 @@ int init_types (struct FIAL_master_type_table *mtt)
 	mtt->finalizers[VALUE_MAP]   = map_fin;
 	mtt->copiers[VALUE_MAP]      = map_cpy;
 
-#ifdef  KEEP_ARRAYS
-	mtt->finalizers[VALUE_ARRAY] = array_fin;
-#endif /* KEEP_ARRAYS */
 
 /*
  * Add extra type finishers here.
@@ -328,7 +316,7 @@ static int set_arguments_on_node (struct FIAL_ast_node *node,
 			}
 
 			FIAL_set_symbol(env->block_stack->values, iter->sym,
-					&ref, env);
+					&ref, env->interp);
 
 			if((++args)->type == VALUE_END_ARGS) {
 				args = NULL;
@@ -345,7 +333,7 @@ static int set_arguments_on_node (struct FIAL_ast_node *node,
 				}
 			}
 			FIAL_set_symbol(env->block_stack->values, iter->sym,
-					&none, env);
+					&none, env->interp);
 		}
 	}
 	return 0;

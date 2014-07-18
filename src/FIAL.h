@@ -9,6 +9,7 @@
 #include "libs.h"
 #include "text_buf.h"
 #include "sequence.h"
+#include "channels.h"
 
 /* this stuff is not permanent, but I'm putting it in here anyway for
    now. */

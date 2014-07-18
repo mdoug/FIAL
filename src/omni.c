@@ -71,7 +71,7 @@ static int get_constant(int argc, struct FIAL_value *argv[],
 				   argv[1]->sym);
 }
 
-int print(int argc, struct FIAL_value **argv,
+static int print(int argc, struct FIAL_value **argv,
 	       struct FIAL_exec_env *env,
 	       void *ptr)
 {
@@ -227,7 +227,7 @@ static int load_lib (int argc, struct FIAL_value **args,
 
 /* i'm really not sure this is the right set symbol, but it's fine for
  * now, all these structures are in a state of flux, unfortunately.*/
-	FIAL_set_symbol(env->lib->libs, args[0]->sym, &val, env);
+	FIAL_set_symbol(env->lib->libs, args[0]->sym, &val, env->interp);
 	return ret;
 }
 
@@ -324,7 +324,6 @@ static int omni_take (int argc, struct FIAL_value **args,
 
 static int omni_dupe (int argc, struct FIAL_value **args,
 		      struct FIAL_exec_env *env, void *ptr)
-
 {
 	enum {SET_ME, CONT, ACCESSOR};
 	struct FIAL_value ref;
@@ -355,6 +354,29 @@ static int omni_dupe (int argc, struct FIAL_value **args,
 	return 0;
 }
 
+static int omni_poke (int argc, struct FIAL_value **args,
+		      struct FIAL_exec_env *env, void *ptr)
+{
+	struct FIAL_value ref;
+	int ret;
+	(void) ptr;
+
+	if(argc < 3) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg =
+			"Need 3 arguments to poke with accessor";
+		FIAL_set_error(env);
+		return -1;
+	}
+	if(FIAL_access_compound_value(&ref, args[1], args[2]) < 0)
+		ret = 0;
+	else 
+		ret = 1;
+	FIAL_clear_value(args[0], env->interp);
+	args[0]->type = VALUE_INT;
+	args[0]->n = ret;
+	return 0;
+}
 
 static int register_type (int argc, struct FIAL_value **args,
 			  struct FIAL_exec_env *env,
@@ -398,6 +420,7 @@ static int get_type_of (int argc, struct FIAL_value **args,
 		 struct FIAL_exec_env *env,
 		 void *ptr)
 {
+	int t;
 	if(argc < 2) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg = "must pass a value to typeof";
@@ -406,10 +429,11 @@ static int get_type_of (int argc, struct FIAL_value **args,
 	}
 	assert(args[0] && args[1]);
 
+	t = args[1]->type;
 	FIAL_clear_value(args[0], env->interp);
 
 	args[0]->type = VALUE_TYPE;
-	args[0]->n    = args[1]->type;
+	args[0]->n    = t;
 
 	return 0;
 
@@ -540,7 +564,8 @@ static int map_set   (int argc, struct FIAL_value *argv[],
 		E_SET_ERROR(*env);
 		return -1;
 	}
-	ret =  FIAL_set_symbol(argv[0]->map, argv[1]->sym, argv[2], env);
+	ret =  FIAL_set_symbol(argv[0]->map, argv[1]->sym, argv[2], 
+	                       env->interp);
 	/* ok, I am deleting the value, since I can't allow copying of
 	 * just anything here.  Not strictly necessary for all value,
 	 * but then again, they should be easy to deal with using
@@ -618,7 +643,9 @@ static int global_set (int argc, struct FIAL_value **args,
 		}
 	}
 	assert(env->lib->global);
-	tmp =  FIAL_set_symbol(env->lib->global, args[0]->sym, args[1], env);
+	tmp =  FIAL_set_symbol(env->lib->global, args[0]->sym, args[1],
+	                       env->interp);
+
 
 	if(tmp < 0) {
 		env->error.code = ERROR_BAD_ALLOC;
@@ -661,134 +688,6 @@ static int global_lookup (int argc, struct FIAL_value **args,
 
 }
 
-#ifdef KEEP_ARRAYS
-
-static int array_create (int argc, struct FIAL_value **args,
-			 struct FIAL_exec_env *env,
-			 void *ptr)
-{
-	if(argc < 1) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "need args! no place to put created array";
-		E_SET_ERROR(*env);
-		return -1;
-
-	}
-	assert(args);
-
-	FIAL_clear_value(args[0], env->interp);
-	args[0]->type   = VALUE_ARRAY;
-	args[0]->array  = calloc(1, sizeof(struct FIAL_array));
-	if(!args[0]->array) {
-		env->error.code = ERROR_BAD_ALLOC;
-		env->error.static_msg = "couldn't allocate space for array.";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	return 0;
-}
-
-static int array_size (int argc, struct FIAL_value **args,
-			 struct FIAL_exec_env *env,
-			 void *ptr)
-{
-	if(argc < 2) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "no arguments to array size -- need "
-		                        "return value and array.";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-
-	if(args[1]->type != VALUE_ARRAY) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "attempt to use array, size for something "
-					"other than array";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-
-	assert(args);
-
-	FIAL_clear_value(args[0], env->interp);
-	args[0]->type = VALUE_INT;
-	args[0]->n    = args[1]->array->size;
-
-	return 0;
-
-}
-
-static int array_get (int argc, struct FIAL_value **args,
-		      struct FIAL_exec_env *env,
-		      void *ptr)
-{
-	int tmp;
-
-	if(argc < 3) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "not enough args to array_get";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	assert(args);
-	if(args[1]->type != VALUE_ARRAY) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "need array as arg2 to get value from.";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	if(args[2]->type != VALUE_INT || args[2]->n < 0) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "need non-negative int as arg3 to get from array.";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	tmp =  FIAL_array_get_index(args[0], args[1]->array, args[2]->n,
-				    env->interp);
-	assert(tmp >= 0);
-	(void)tmp;
-	return 0;
-}
-
-static int array_set (int argc, struct FIAL_value **args,
-		      struct FIAL_exec_env *env,
-		      void *ptr)
-{
-	int tmp;
-
-	if(argc < 3) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "not enough args to array_set";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	assert(args);
-	if(args[0]->type != VALUE_ARRAY) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "need array to set value to";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	if(args[1]->type != VALUE_INT) {
-		env->error.code = ERROR_INVALID_ARGS;
-		env->error.static_msg = "need non negetive int to set array element.";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	tmp =  FIAL_array_set_index(args[0]->array, args[1]->n,args[2],
-				    env->interp);
-	if(tmp < 0) {
-		assert( tmp != -2);
-		assert( tmp == -1);
-
-		env->error.code = ERROR_BAD_ALLOC;
-		env->error.static_msg = "coulnt' allocate space to set value in array.";
-		E_SET_ERROR(*env);
-		return -1;
-	}
-	return 0;
-}
-#endif /* KEEP_ARRAYS */
 
 static int break_on_me (int argc, struct FIAL_value **args,
 			 struct FIAL_exec_env *env,
@@ -803,12 +702,13 @@ struct FIAL_c_func_def omni_lib[] = {
 	{"move"     , move_value,     NULL},
 	{"copy"     , copy_value,     NULL},
 	{"register" , register_type , NULL},
-	{"type_of"  , get_type_of ,   NULL},
+	{"typeof"  , get_type_of ,   NULL},
 	{"const"    , get_constant,   NULL},
 	{"break"    , break_on_me,    NULL},
 	{"take"     , omni_take   ,   NULL},
 	{"put"      , omni_put    ,   NULL},
 	{"dupe"     , omni_dupe   ,   NULL},
+	{"poke"     , omni_poke   ,   NULL},
 	{NULL       , NULL        ,   NULL}
 };
 
@@ -819,15 +719,6 @@ struct FIAL_c_func_def map_lib[] = {
 	{"dupe"  , map_dupe    ,   NULL},
 	{NULL    , NULL        ,   NULL}
 };
-#ifdef KEEP_ARRAYS
-struct FIAL_c_func_def array_lib[] = {
-	{"create", array_create ,   NULL},
-	{"set"   , array_set    ,   NULL},
-	{"get"   , array_get    ,   NULL},
-	{"size"  , array_size   ,   NULL},
-	{NULL    , NULL         ,   NULL}
-};
-#endif /* KEEP_ARRAYS */
 
 struct FIAL_c_func_def global_lib[] = {
 	{"set"   , global_set    ,   NULL},

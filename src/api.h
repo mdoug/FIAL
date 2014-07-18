@@ -67,7 +67,6 @@ char *FIAL_get_str (struct FIAL_value *);
 
 void FIAL_clear_value(struct FIAL_value *val,
 		      struct FIAL_interpreter *interp);
-
 void FIAL_move_value (struct FIAL_value *to,
 		      struct FIAL_value *from,
 		      struct FIAL_interpreter *interp);

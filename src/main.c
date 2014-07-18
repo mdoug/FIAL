@@ -133,7 +133,6 @@ int main(int argc, char *argv[])
 	env.skip_advance = 0;
 
 	ret = FIAL_interpret(&env);
-	Sleep(1000);
 /*
 
 

@@ -132,29 +132,30 @@ $[a-zA-Z_][a-zA-Z_0-9]* {
 <string_state>\\.               append_char(&buffy, yytext[1]);
 <string_state>[^\\\n\"]+        {append_str(&buffy, yytext, yyleng); }
 
- "{"                 {return '{';}
- "}"                 {return '}';}
- ","                 {return ',';}
- "("                 {return '(';}
- ")"                 {return ')';}
- ";"                 {return ';';}
- "+"                 {return '+';}
- "-"                 {return '-';}
- "*"                 {return '*';}
- "/"                 {return '/';}
- "="                 {return '=';}
- "=="                {return EQUALITY;}
- "<"                 {return '<';}
- ">"                 {return '>';}
- ":"                 {return ':';}
- "::"                {return DOUBLE_COLON;}
- "."                 {return '.';}
+"{"                 {return '{';}
+"}"                 {return '}';}
+","                 {return ',';}
+"("                 {return '(';}
+")"                 {return ')';}
+";"                 {return ';';}
+"+"                 {return '+';}
+"-"                 {return '-';}
+"*"                 {return '*';}
+"/"                 {return '/';}
+"="                 {return '=';}
+    /* "=="                {return EQUALITY;} */
+"<"                 {return '<';}
+">"                 {return '>';}
+":"                 {return ':';}
+"::"                {return DOUBLE_COLON;}
+"."                 {return '.';}
 
 
- [[:blank:]]         {}
- \n                  {FIAL_parser_line_no++;
- 		     FIAL_parser_col_no = 1;}
-.                    {return UNKNOWN;}
+[[:blank:]]         {}
+\n                  {FIAL_parser_line_no++;
+		      FIAL_parser_col_no = 1;}
+\t                  {FIAL_parser_col_no += 7;}
+.                   {return UNKNOWN;}
 
 %%
 

@@ -14,9 +14,9 @@ SOURCEDIR     = $(ROOTDIR)src/
 PACKAGE_DIR   = ./package
 INCLUDEDIR    = $(SOURCEDIR)
 
-CFLAGS        = /Dinline="" /MD /Zi /Od
+CFLAGS        = /Dinline="" /MD /Zi /Od /we4133 /I.
 # CFLAGS        = -Dinline=""
-INCLUDE_FLAGS = -I$(INCLUDEDIR) -I.
+INCLUDE_FLAGS = -I$(INCLUDEDIR) -I.:w
 YACCFLAGS     = -b parser -d -L
 
 LDFLAGS       = /DEBUG

@@ -19,6 +19,7 @@
 	,"TEXT_BUF"
 	,"SEQ"
 	,"CHANNEL"
+	,"THREAD"
 
 	,"NODE"
 	,"C_FUNC"

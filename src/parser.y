@@ -65,11 +65,12 @@
 %type <ast_node> arg_decl proc_def var_decl call top labelled_body common_body
 %type <ast_node> initializer seq_init_items seq_init_item map_init_items map_init_item
 %type <ast_node> map_access assign_left arglist arglist_item non_id_expr var_decl_item
+%type <ast_node> assign_right
 
 %left AND OR NOT /* not sure where these should go, or what there
 		    precedence should be in relation to one another,
 		    but this seems more or less right. */
-%left '<' '>' EQUALITY
+%left '<' '>' '=' /* EQUALITY */
 %left '+' '-'
 %left '*' '/'
 %left NEG
@@ -154,8 +155,7 @@ VAR var_decl_item              {$$ = NODE(AST_VAR_DECL,  $2, $2, @$.line, @$.col
 
 var_decl_item:
 ID                       {$$ = NODE(AST_VAR_DECL_ITEM, NULL, NULL, @$.line, @$.col); $$->sym = $1;}
-| ID '=' expr            {$$ = NODE(AST_VAR_DECL_ITEM,   $3, NULL, @$.line, @$.col); $$->sym = $1;}
-| ID '=' initializer     {$$ = NODE(AST_VAR_DECL_ITEM,   $3, NULL, @$.line, @$.col); $$->sym = $1;}
+| ID '=' assign_right    {$$ = NODE(AST_VAR_DECL_ITEM,   $3, NULL, @$.line, @$.col); $$->sym = $1;}
 
    /* for a while I was using commas instead of periods, but when I
       eliminated the semicolons at the end of lines, it began to look
@@ -194,8 +194,7 @@ ID                         {$$ = NODE(AST_ARGLIST_ID,       NULL, NULL, @$.line,
  */
 
 assign:
-assign_left '=' expr               {$$ = $1; $$->right = $3;}
-| assign_left '=' initializer      {$$ = $1; $$->right = $3;}
+assign_left '=' assign_right       {$$ = $1; $$->right = $3;}
 ;
 
 assign_left:
@@ -203,21 +202,23 @@ ID                     {$$ = NODE(AST_ASSIGN, NULL, NULL, @$.line, @$.col); $$->
 | map_access           {$$ = NODE(AST_ASSIGN,   $1, NULL, @$.line, @$.col);}
 ;
 
+/* I'm just reusing the init defines, I don't see the need to redo this, the switch statements are 
+   pretty small anyway, so efficiency shouldn't matter much */
+
+assign_right:
+expr                        {$$ = $1;}
+| initializer               {$$ = $1;}
+| ':' ID                    {$$ = NODE(AST_INIT_MOVE_ID, NULL, NULL, @$.line, @$.col); $$->sym = $2;}
+| DOUBLE_COLON ID           {$$ = NODE(AST_INIT_COPY_ID, NULL, NULL, @$.line, @$.col); $$->sym = $2;}
+| ':' map_access            {$$ = NODE(AST_INIT_MOVE_ACS, $2, NULL,  @$.line, @$.col);}
+| DOUBLE_COLON map_access   {$$ = NODE(AST_INIT_COPY_ACS, $2, NULL,  @$.line, @$.col);}
+;
+
 initializer:
-/*
-'{'  '}'                        {$$ = NULL;}
-| '{' ':' '}'                   {$$ = NULL;}
-| '{' ',' '}'                   {$$ = NULL;}
-*/
-'{' map_init_items  '}'       {$$ = $2;}  /* map */
+'{' map_init_items  '}'         {$$ = $2;}  /* map */
 | '{' seq_init_items  '}'       {$$ = $2;}  /* seq */
-/*
-| '{' ID DOUBLE_COLON expr '}'  {$$ = NULL;}
-| '{' expr '}' {$$ = NULL;}
-| '{' expr ',' expr '}' {$$ = NULL;}
-| '{' DOUBLE_COLON expr '}' {$$ = NULL;}
-| '{' '}'   {$$ = NULL;}
-*/
+| '{' '}'                       {$$ = NODE(AST_SEQ_INITIALIZER, NULL, NULL, @$.line, @$.col); $$->n = 0;}
+| '{' '=' '}'                   {$$ = NODE(AST_MAP_INITIALIZER, NULL, NULL, @$.line, @$.col); $$->n = 0;}
 ;
 
 map_init_items:
@@ -228,11 +229,11 @@ map_init_item                        {$$ = NODE(AST_MAP_INITIALIZER, $1, $1, @$.
 map_init_item:
 ID '=' expr                  {$$ = NODE(AST_INIT_EXPRESSION,  $3, NULL, @$.line, @$.col); $$->sym = $1;}
 | ID '=' initializer         {$$ = NODE(AST_INIT_INITIALIZER, $3, NULL, @$.line, @$.col); $$->sym = $1;}
-| ID ':' map_access          {$$ = NODE(AST_INIT_MOVE_ACS,    $3, NULL, @$.line, @$.col); $$->sym = $1;}
-| ID DOUBLE_COLON map_access {$$ = NODE(AST_INIT_COPY_ACS,    $3, NULL, @$.line, @$.col); $$->sym = $1;}
-| ID ':' ID                  {node *tmp = NODE(AST_EXPR_ID,  NULL, NULL, @$.line, @$.col); tmp->sym = $3;
+| ID '=' ':' map_access      {$$ = NODE(AST_INIT_MOVE_ACS,    $4, NULL, @$.line, @$.col); $$->sym = $1;}
+| ID '=' DOUBLE_COLON map_access {$$=NODE(AST_INIT_COPY_ACS,  $4, NULL, @$.line, @$.col); $$->sym = $1;}
+| ID '=' ':' ID              {node *tmp = NODE(AST_EXPR_ID,  NULL, NULL, @$.line, @$.col); tmp->sym = $4;
                               $$ = NODE(AST_INIT_MOVE_ID,    tmp, NULL, @$.line, @$.col); $$->sym = $1;}
-| ID DOUBLE_COLON ID         {node *tmp = NODE(AST_EXPR_ID,  NULL, NULL, @$.line, @$.col); tmp->sym = $3;
+| ID '=' DOUBLE_COLON ID     {node *tmp = NODE(AST_EXPR_ID,  NULL, NULL, @$.line, @$.col); tmp->sym = $4;
                               $$ = NODE(AST_INIT_COPY_ID,     tmp, NULL, @$.line, @$.col); $$->sym = $1;}
 ;
 
@@ -298,7 +299,11 @@ INT                     {$$ = NODE(AST_INT,     NULL, NULL, @$.line, @$.col); $$
 | expr '-' expr         {$$ = NODE(AST_MINUS,        $1,   $3, @$.line, @$.col);}
 | expr '*' expr         {$$ = NODE(AST_TIMES,        $1,   $3, @$.line, @$.col);}
 | expr '/' expr         {$$ = NODE(AST_DIVIDE,       $1,   $3, @$.line, @$.col);}
+/*
 | expr EQUALITY expr    {$$ = NODE(AST_EQUALITY,     $1,   $3, @$.line, @$.col);}
+*/
+
+| expr '=' expr    {$$ = NODE(AST_EQUALITY,     $1,   $3, @$.line, @$.col);}
 | expr '<' expr         {$$ = NODE(AST_LESS_THAN,    $1,   $3, @$.line, @$.col);}
 | expr '>' expr         {$$ = NODE(AST_GREATER_THAN, $1,   $3, @$.line, @$.col);}
 | expr AND expr         {$$ = NODE(AST_AND,          $1,   $3, @$.line, @$.col);}

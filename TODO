@@ -1,3 +1,39 @@
+This is an idea I had, some notation for seq.in, seq.first, seq.last.  
+
+The look cleaner, but that is when you are staring at them.  Remembering that
+most people won't be using FIAL as their primary programming language, it seems
+to me that the proc versions are perhaps more self explanatory. 
+
+/*
+compare : 
+	seq.in(new_thrds, thrd)
+	seq.in(new_thrds, thrd)
+	seq.first(thrd, new_thrd)
+	seq.last(thrd, new_thrd)
+	seq.append(old_threads, new_threads)
+
+	new_thrds < thrd 
+	thrd > new_thrds
+	thrd < new_thrds
+	new_thrds > thrd
+	old_thrds << new_thrds
+
+	obviously cleaner looking, but on the other hand, additional syntax is
+	generally bad, so not sure this adds enough to make it worthwhile.  
+
+	If it is used, it should probably work on channels to, which is maybe
+	something I don't want to do (reluctant to make channels a core part 
+	of the langauge, since some places they might be turned off)
+
+	map.accessor > seq
+	map.accessor = none
+
+*/
+
+Add move and copy operators to assignments.  Not having them is just silly. 
+omni.poke (return, container, accessor) /* returns true if accessor is valid */
+omni.expr (return, container, accessor) /* returns value in accessor, as 
+                                           it would appear in an expression */
 Ok, srs business --
 
 this is all done, I just need to return the thread on creation.  This will 

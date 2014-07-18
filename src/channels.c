@@ -108,16 +108,17 @@ void FIAL_deinit_channel (struct FIAL_channel *chan)
 {
 	int count;
 	int len;
-	int i;
+	int i = 0;
 	count = FIAL_sem_get_count(&chan->take);
 	len = chan->size - count;
 
-	for(i = 0; i < len; 
-	    (void) ((chan->first == chan->value + chan->size) ? 
-	            chan->first++ : (chan->first = chan->value)), 
-	    i++)
+	for(i = 0; i < len; i++) {
 		FIAL_clear_value(chan->first, chan->interp);
-
+		if (chan->first != chan->value + chan->size)
+			chan->first++;
+		else 
+			chan->first = chan->value;
+	}
 	FIAL_deinit_lock(&chan->lock);
 	FIAL_deinit_lock(&chan->put_lock);
 	FIAL_deinit_lock(&chan->take_lock);

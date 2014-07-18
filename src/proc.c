@@ -183,6 +183,72 @@ static int proc_run (int argc, struct FIAL_value **argv,
 	return 0;
 }
 
+
+static int proc_apply(int argc, struct FIAL_value **argv,
+                      struct FIAL_exec_env *env, void *ptr)
+{
+	int i;
+	struct FIAL_value *arg_strip = NULL;
+	struct FIAL_exec_env tmp;
+	struct FIAL_seq *seq;
+	struct FIAL_value end_args;
+	int ret;
+
+	(void) ptr;
+	if (argc < 3 ||
+	    argv[1]->type != VALUE_PROC ||
+	    argv[2]->type != VALUE_SEQ) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg = 
+		"Need (1) return value for possible error, (2) proc, (3) seq "
+		"of args to apply to proc";
+		FIAL_set_error(env);
+		return -1;
+	}
+	FIAL_init_exec_env (&tmp);
+	/* FIXME: alloca or variable length array should be
+                         considered here.  */
+	seq = argv[2]->seq;
+	if(seq->head != seq->first) {
+		end_args.type = VALUE_END_ARGS;
+		if (FIAL_seq_in (seq, &end_args) < 0) {
+			env->error.code = ERROR_BAD_ALLOC;
+			env->error.static_msg = 
+			"Couldn't apply values, couldn't add to sequence";
+			FIAL_set_error(env);
+			FIAL_deinit_exec_env(&tmp);
+			return -1;
+		}
+		arg_strip = seq->first;
+	}
+	ret = FIAL_run_proc(argv[1]->proc, arg_strip, &tmp);
+	if(seq->head != seq->first) {
+		int ret;
+		assert(((seq->head)-1)->type == VALUE_END_ARGS);
+		ret = FIAL_seq_last (&end_args, seq, env->interp);
+		assert(ret == 0);
+		assert(end_args.type == VALUE_END_ARGS);
+		(void) ret;
+	}
+	if (ret < 0) {
+		struct FIAL_error_info *err = malloc(sizeof(*err));
+		if(!err) {
+			tmp.error.code = ERROR_BAD_ALLOC;
+			tmp.error.static_msg = 
+			"Couldn't allocate space for error info";
+			FIAL_set_error(env);
+		}
+		memcpy(err, &tmp.error, sizeof(*err));
+		FIAL_clear_value(argv[0], env->interp);
+		argv[0]->type = VALUE_ERROR_INFO;
+		argv[0]->err = err;
+		FIAL_deinit_exec_env(&tmp);
+		return 0;
+	}
+	FIAL_deinit_exec_env(&tmp);
+	return 0;
+}
+
 /* ok, I will work on refactoring this stuff to share code later.  For now,
  * I will just do a crude rewrite of the run code, only launching a thread */
 
@@ -225,8 +291,8 @@ static int proc_launch (int argc, struct FIAL_value **argv,
 	HANDLE thread;
 	int i;
 
-	if (argc < 1 ||
-	    argv[0]->type != VALUE_PROC) {
+	if (argc < 2 ||
+	    argv[1]->type != VALUE_PROC) {
 		env->error.code = ERROR_INVALID_ARGS;
 		env->error.static_msg = 
 		"Need (1) return value for possible error, (2) proc, to launch "
@@ -241,7 +307,7 @@ static int proc_launch (int argc, struct FIAL_value **argv,
 			FIAL_set_error(env);
 			return -1;
 	}
-	if(argc > 1) {
+	if(argc > 2) {
 		arg_strip = calloc (sizeof(*arg_strip), argc);
 		if (!arg_strip) {
 			env->error.code = ERROR_BAD_ALLOC;
@@ -250,22 +316,32 @@ static int proc_launch (int argc, struct FIAL_value **argv,
 			FIAL_set_error(env);
 			return -1;
 		}
-		for (i = 0; i < (argc-1); i++)
-			FIAL_move_value(arg_strip + i, argv[i+1], env->interp);
+		for (i = 0; i < (argc-2); i++)
+			FIAL_move_value(arg_strip + i, argv[i+2], env->interp);
 		arg_strip[i].type = VALUE_END_ARGS;
 	}
-	la->proc = *argv[0]->proc;
+	la->proc = *argv[1]->proc;
 	la->args = arg_strip;
 	
 	thread = CreateThread(NULL, 0, launcher, la, 0, NULL);
-	CloseHandle(thread);
+	if(thread == NULL) {
+		if (arg_strip) 
+			for(i = 0; i < argc-2; i++)
+				FIAL_clear_value(arg_strip + i, env->interp);
+		FIAL_clear_value(argv[0], env->interp);
+		return 0;
+	}
+	FIAL_clear_value(argv[0],env->interp);
+	argv[0]->type = VALUE_THREAD;
+	assert(sizeof(thread) <= sizeof(void *));
+	memcpy (&(argv[0]->ptr), &thread, sizeof(thread));
 	return 0;
 }
 
 static int error_static_msg (int argc, struct FIAL_value **argv,
                              struct FIAL_exec_env *env, void *ptr)
 {
-	const char *str;
+	char *str;
 
 	(void)ptr;
 	if (argc < 2 ||
@@ -284,6 +360,28 @@ static int error_static_msg (int argc, struct FIAL_value **argv,
 	return 0;
 }
 
+static int error_line (int argc, struct FIAL_value **argv,
+                       struct FIAL_exec_env *env, void *ptr)
+{
+	int n;
+
+	(void)ptr;
+	if (argc < 2 ||
+	    argv[1]->type != VALUE_ERROR_INFO ) {
+		env->error.code = ERROR_INVALID_ARGS;
+		env->error.static_msg = 
+		"Need (1) return value, (2) error info, to get static msg"
+		" from error info.";
+		FIAL_set_error(env);
+		return -1;
+	}
+	n = argv[1]->err->line;
+	FIAL_clear_value(argv[0], env->interp);
+	argv[0]->type = VALUE_INT;
+	argv[0]->str  = n;
+	return 0;
+}
+
 static int proc_finalizer (struct FIAL_value *val,
                            struct FIAL_interpreter *interp,
                            void *ptr)
@@ -292,6 +390,26 @@ static int proc_finalizer (struct FIAL_value *val,
 	memset (val, 0, sizeof(*val));
 	return 0;
 }
+
+static int proc_copier (struct FIAL_value *to,
+                        struct FIAL_value *from,
+                        struct FIAL_interpreter *interp,
+                        void *ptr)
+{
+	struct FIAL_proc *new_proc;
+	if (to == from) 
+		return 0;
+	new_proc = malloc(sizeof(*new_proc));
+	if (!new_proc) 
+		return -1;
+	memcpy (new_proc, from->proc, sizeof(*new_proc));
+	FIAL_clear_value (to, interp);
+	to->type = VALUE_PROC;
+	to->proc = new_proc;
+	return 0;
+}
+
+
 
 static int err_info_finalizer (struct FIAL_value *val,
                                struct FIAL_interpreter *interp,
@@ -328,22 +446,57 @@ static int err_info_copier (struct FIAL_value *to,
 	return 0;
 }
 
+static int thread_finalizer (struct FIAL_value *val,
+                             struct FIAL_exec_env *env)
+{
+	HANDLE thread;
+
+	assert(val->type == VALUE_THREAD);
+	assert(sizeof(thread) <= sizeof(void *));
+	memcpy(&thread, &(val->ptr), sizeof(thread));
+	assert(thread != NULL);
+
+	WaitForSingleObject(thread, INFINITE);
+	CloseHandle(thread);
+	memset(val, 0, sizeof(*val));
+	return 0;
+}
+
+static int thread_copier (struct FIAL_value *to,
+                          struct FIAL_value *from,
+                          struct FIAL_interpreter *interp)
+{
+	if (to == from)
+		return 0;
+	FIAL_clear_value(to, interp);
+	to->type = VALUE_ERROR;
+	to->n = ERROR_INVALID_ARGS;
+	return 0;
+}
 int FIAL_install_proc (struct FIAL_interpreter *interp)
 {
 	struct FIAL_c_func_def lib_proc[] = {
 		{"create"    , proc_create      , NULL},
 		{"run"       , proc_run         , NULL},
+		{"apply"     , proc_apply         , NULL},
 		{"launch"    , proc_launch      , NULL},
 		{"static_msg", error_static_msg , NULL},
+		{"line"      , error_line , NULL},
 		{NULL        , NULL             , NULL}
 	};
 	struct FIAL_finalizer proc_fin = {proc_finalizer, NULL};
 	struct FIAL_finalizer err_fin = {err_info_finalizer, NULL};
+	struct FIAL_finalizer thread_fin = {thread_finalizer, NULL};
+	struct FIAL_copier proc_cpy = {proc_copier, NULL};
 	struct FIAL_copier err_cpy = {err_info_copier, NULL};
+	struct FIAL_copier thread_cpy = {thread_copier, NULL};
 
 	interp->types.finalizers[VALUE_PROC] = proc_fin;
 	interp->types.finalizers[VALUE_ERROR_INFO] = err_fin;
+	interp->types.finalizers[VALUE_THREAD] = thread_fin;
+	interp->types.copiers[VALUE_PROC]=proc_cpy;
 	interp->types.copiers[VALUE_ERROR_INFO]=err_cpy;
+	interp->types.copiers[VALUE_THREAD]=thread_cpy;
 
 	if(FIAL_load_c_lib (interp, "proc", lib_proc, NULL) < 0) 
 		return -1;
