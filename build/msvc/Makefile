@@ -16,7 +16,7 @@ INCLUDEDIR    = $(SOURCEDIR)
 
 CFLAGS        = /Dinline="" /MD /Zi /Od /we4133 /I.
 # CFLAGS        = -Dinline=""
-INCLUDE_FLAGS = -I$(INCLUDEDIR) -I.:w
+INCLUDE_FLAGS = -I$(INCLUDEDIR) -I.
 YACCFLAGS     = -b parser -d -L
 
 LDFLAGS       = /DEBUG
