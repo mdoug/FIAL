@@ -1,22 +1,25 @@
-/* * Actually, all the "thread" functions are just in the proc.c file for now,
- * this deals with synchronization primatives.  
- */
+/* this file was called F_threads.h.  But, since it deals with synchronization,  * it will be renamed to sync.h  */
+
+
+/* this file declares FIAL_LOCK and FIAL_SEM, they are all caps because they are
+ * typedefs, I guess?  They were originally defines, but that doesn't make any
+ * sense, I must have been brain dead when I did that. So I changed to typedef,
+ * but kept the all caps.  */
 
 #ifndef FIAL_F_THREADS_H
 #define FIAL_F_THREADS_H
 
-#define WIN32_THREADS
-#ifdef WIN32_THREADS
-
+#ifdef WIN32
 #include <Windows.h>
-#define FIAL_LOCK CRITICAL_SECTION 
+
+typedef CRITICAL_SECTION FIAL_LOCK;
 
 /*
  * yes, I know windows has semaphores, but (a) they are "heavy weight", i.e.
  * inter process, and (b) you need need to increment the semaphore in order to
  * get the value, which I need to get in order to know how many values to
- * finalize, and that seemed a bit hacky to me.  So, I am just implementing my own via 
- * condition variables. 
+ * finalize, and that seemed a bit hacky to me.  So, I am just implementing my
+ * own via condition variables. 
  */
 
 struct FIAL_semaphore {
@@ -25,9 +28,30 @@ struct FIAL_semaphore {
 	CONDITION_VARIABLE cond;
 };
 
-#define FIAL_SEM struct FIAL_semaphore
+typedef struct FIAL_semaphore FIAL_SEM;
 
-#endif /* WIN32_THREADS */
+#else
+#include <pthread.h>
+
+#if !defined(PTHREADS)
+#error "Need WIN32 or PTHREADS defined to build"
+#endif
+
+typedef pthread_mutex_t FIAL_LOCK;
+
+/* actually, I think posix semaphores are also interprocess, so I will just do
+ * the same thing here as I did for windows.  */
+
+struct FIAL_semaphore {
+	int count;
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+};
+
+typedef struct FIAL_semaphore FIAL_SEM;
+
+#endif /* WIN32 */
+
 
 /* 
  * TODO: benchmark these, I think I am hurting performance by having these

@@ -23,7 +23,9 @@
 
 int FIAL_install_constants (struct FIAL_interpreter *interp)
 {
-	struct FIAL_value val = {0};
+	struct FIAL_value val;
+
+	memset(&val, 0, sizeof(val));
 
 	if(!interp->constants) {
 		interp->constants = FIAL_create_symbol_map();
@@ -143,8 +145,10 @@ static int load_lib (int argc, struct FIAL_value **args,
 {
 	union FIAL_lib_entry *lib_ent  = NULL;
 	int ret                         = 0;
-	struct FIAL_value val           = {0};
+	struct FIAL_value val;
 	int new_lib                     = 0;
+
+	memset (&val, 0, sizeof(val));
 
 	if(env->interp->state != FIAL_INTERP_STATE_LOAD) {
 		env->error.code = ERROR_INTERP_STATE;

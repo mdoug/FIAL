@@ -30,6 +30,7 @@ INCLUDEDIR    = ${SOURCEDIR}
 CFLAGS        = -Wall -Wextra -g -O0                   \
                 -Werror-implicit-function-declaration  \
                 -Wno-unused-value -Wno-unused-parameter\
+                -DPTHREADS -pthread
 
 INCLUDE_FLAGS = -I${INCLUDEDIR} -I.
 YACCFLAGS     = -b parser -d -L
@@ -38,7 +39,8 @@ LDFLAGS       = -L.
 
 OBJS          = main.o
 AR_OBJS       = lex.yy.o parser.tab.o interp.o basic_types.o loader.o ast.o \
-	        omni.o text_buf.o api.o sequence.o
+	        omni.o text_buf.o api.o sequence.o sync_pthread.o proc.o channels.o \
+                chan_lib.o
 
 DEFINE_GENERATOR  = python ${ROOTDIR}utils/gen_defines.py
 GENERATED_HEADERS = ast_def_short.h value_def_short.h error_def_short.h

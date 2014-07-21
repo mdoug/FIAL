@@ -5,7 +5,7 @@
 
 #include "F_threads.h"
 
-#ifdef WIN32 /* WIN32_THREADS */
+#ifdef WIN32 
 
 int FIAL_init_lock (FIAL_LOCK *crit_sec)
 {
@@ -79,7 +79,6 @@ void FIAL_sem_pend (FIAL_SEM *sem)
 
 int FIAL_sem_try(FIAL_SEM *sem)
 {
-	int tmp;
 	EnterCriticalSection(&sem->lock);
 	if(sem->count > 0) {
 		sem->count--;
@@ -100,4 +99,8 @@ int FIAL_sem_get_count(FIAL_SEM *sem)
 	return tmp;
 }
 
-#endif /* WIN32_THREADS */
+#else /* WIN32 */
+
+#error "attempting to build WIN32 sync primatives without WIN32 defined"
+
+#endif /* WIN32 */

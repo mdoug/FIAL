@@ -267,7 +267,6 @@ int FIAL_channel_pick (struct FIAL_value *value, int *picked_id,
                        struct FIAL_channel **channel_choices, 
                        int ch_array_size)
 {
-	int ret = 0;
 	int i;
 	int count = 0;
 	struct FIAL_pick_package mbox;

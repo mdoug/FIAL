@@ -19,9 +19,18 @@
  * appropriate member.)
  */
 
+#ifdef WIN32
 #include <Windows.h>
+#elif defined PTHREADS
+#include <pthread.h>
+#else
+/* Currently no support for threadless builds, will add at some point.  This
+ * maybe not the best language to use without threads at any rate. */
+#error "Currently Need Threading (Win32 or pthreads)"
+#endif
 
 #include <assert.h>
+#include <string.h>
 #include "FIAL.h"
 
 static int get_lib (union FIAL_lib_entry **lib, 
@@ -51,7 +60,6 @@ static int get_lib (union FIAL_lib_entry **lib,
 static int proc_create (int argc, struct FIAL_value **argv,
                         struct FIAL_exec_env *env, void *ptr)
 {
-	char *str;
 	struct FIAL_proc *proc;
 	FIAL_symbol proc_sym;
 
@@ -187,7 +195,6 @@ static int proc_run (int argc, struct FIAL_value **argv,
 static int proc_apply(int argc, struct FIAL_value **argv,
                       struct FIAL_exec_env *env, void *ptr)
 {
-	int i;
 	struct FIAL_value *arg_strip = NULL;
 	struct FIAL_exec_env tmp;
 	struct FIAL_seq *seq;
@@ -260,7 +267,11 @@ struct launcher_args {
 	struct FIAL_value *args;
 };
 
+#ifdef WIN32
 static DWORD WINAPI launcher (void *ptr)
+#else /* PTHREADS */
+static void * launcher(void *ptr)
+#endif
 {
 	int ret;
 	struct launcher_args *la = ptr;
@@ -280,15 +291,64 @@ cleanup:
 			FIAL_clear_value(iter, la->proc.interp);
 	free(la->args);
 	free(la);
-	return ret;
+
+/* this currently isn't terribly useful, no way to read it */
+#ifdef WIN32
+	return ret; 
+#else  /* PTHREADS */
+	return (void *) ret;
+#endif
+
 }
+
+/* these don't clear the value -- no need to write that code twice.  */ 
+
+#ifdef WIN32
+static int create_thread_value (struct FIAL_value *thread,
+                                struct launcher_args *args)
+{
+	HANDLE handle;
+
+	handle = CreateThread(NULL, 0, launcher, args, 0, NULL);
+	if (handle == NULL) {
+		return -1;
+	}
+
+	thread->type = VALUE_THREAD;
+	assert(sizeof(handle) <= sizeof(void *));
+	thread->ptr = (void *) handle;
+	
+	return 0;
+}
+#else /* PTHREADS */
+static int create_thread_value (struct FIAL_value *thread,
+                                struct launcher_args *args)
+{
+	pthread_t *pt = malloc (sizeof(*pt));
+	int tmp;
+	
+	if (pt == NULL)
+		return -1;
+	
+	tmp = pthread_create (pt, NULL, launcher, args);
+	if (tmp != 0) { 
+		free(pt);
+		return -1;
+	}
+	
+	thread->type = VALUE_THREAD;
+	thread->ptr = pt;
+	return 0;
+}
+#endif /* WIN32 */
 
 static int proc_launch (int argc, struct FIAL_value **argv, 
                         struct FIAL_exec_env *env, void *ptr)
 {
-	struct FIAL_value *arg_strip;
+	struct FIAL_value *arg_strip = NULL;
 	struct launcher_args *la = calloc(sizeof(*la), 1);
-	HANDLE thread;
+	struct FIAL_value thread;
+	int tmp;
 	int i;
 
 	if (argc < 2 ||
@@ -323,8 +383,8 @@ static int proc_launch (int argc, struct FIAL_value **argv,
 	la->proc = *argv[1]->proc;
 	la->args = arg_strip;
 	
-	thread = CreateThread(NULL, 0, launcher, la, 0, NULL);
-	if(thread == NULL) {
+	tmp = create_thread_value (&thread, la);
+	if(tmp != 0) {
 		if (arg_strip) 
 			for(i = 0; i < argc-2; i++)
 				FIAL_clear_value(arg_strip + i, env->interp);
@@ -332,9 +392,7 @@ static int proc_launch (int argc, struct FIAL_value **argv,
 		return 0;
 	}
 	FIAL_clear_value(argv[0],env->interp);
-	argv[0]->type = VALUE_THREAD;
-	assert(sizeof(thread) <= sizeof(void *));
-	memcpy (&(argv[0]->ptr), &thread, sizeof(thread));
+	*argv[0] = thread;
 	return 0;
 }
 
@@ -378,7 +436,7 @@ static int error_line (int argc, struct FIAL_value **argv,
 	n = argv[1]->err->line;
 	FIAL_clear_value(argv[0], env->interp);
 	argv[0]->type = VALUE_INT;
-	argv[0]->str  = n;
+	argv[0]->n  = n;
 	return 0;
 }
 
@@ -446,26 +504,45 @@ static int err_info_copier (struct FIAL_value *to,
 	return 0;
 }
 
+#ifdef WIN32
 static int thread_finalizer (struct FIAL_value *val,
-                             struct FIAL_exec_env *env)
+                             struct FIAL_interpreter *interp, 
+                             void *ptr)
 {
 	HANDLE thread;
 
+	(void) ptr;
+
 	assert(val->type == VALUE_THREAD);
 	assert(sizeof(thread) <= sizeof(void *));
-	memcpy(&thread, &(val->ptr), sizeof(thread));
+	thread = (HANDLE) thread->ptr;
 	assert(thread != NULL);
 
 	WaitForSingleObject(thread, INFINITE);
 	CloseHandle(thread);
-	memset(val, 0, sizeof(*val));
 	return 0;
 }
+#else /* PTHREADS */
+static int thread_finalizer (struct FIAL_value *val,
+                             struct FIAL_interpreter *interp,
+                             void *arg)
+{
+	void *ptr;
+
+	(void) arg;
+	pthread_join (val->ptr, &ptr);
+	free (val->ptr);
+	return 0;
+}
+#endif /* WIN32 */
 
 static int thread_copier (struct FIAL_value *to,
                           struct FIAL_value *from,
-                          struct FIAL_interpreter *interp)
+                          struct FIAL_interpreter *interp,
+                          void *ptr)
 {
+	(void) ptr;
+
 	if (to == from)
 		return 0;
 	FIAL_clear_value(to, interp);
@@ -473,6 +550,7 @@ static int thread_copier (struct FIAL_value *to,
 	to->n = ERROR_INVALID_ARGS;
 	return 0;
 }
+
 int FIAL_install_proc (struct FIAL_interpreter *interp)
 {
 	struct FIAL_c_func_def lib_proc[] = {

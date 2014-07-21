@@ -1,8 +1,9 @@
 #include <assert.h>
+#include <string.h>
 
 #include "FIAL.h"
 #include "channels.h"
-
+#include "F_threads.h"
 
 #define SET_ERROR_MSG(env, e_code, msg) do {          \
 		(env)->error.code = (e_code);       \
@@ -163,6 +164,7 @@ static int final (struct FIAL_value *val, struct FIAL_interpreter *interp,
 	
 	FIAL_channel_dec_refs(val->chan);
 	memset(val, 0, sizeof(*val));
+	return 0;
 }
 
 static int copy (struct FIAL_value *to, struct FIAL_value *from, 
