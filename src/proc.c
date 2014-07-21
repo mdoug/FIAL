@@ -515,13 +515,14 @@ static int thread_finalizer (struct FIAL_value *val,
 
 	assert(val->type == VALUE_THREAD);
 	assert(sizeof(thread) <= sizeof(void *));
-	thread = (HANDLE) thread->ptr;
+	thread = (HANDLE) val->ptr;
 	assert(thread != NULL);
 
 	WaitForSingleObject(thread, INFINITE);
 	CloseHandle(thread);
 	return 0;
 }
+
 #else /* PTHREADS */
 static int thread_finalizer (struct FIAL_value *val,
                              struct FIAL_interpreter *interp,
